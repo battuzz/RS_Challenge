@@ -8,25 +8,28 @@ import os
 from . import preprocess
 
 def evaluate(test, recommendations, should_transform_test=True):
-    # - "test" is:
-    #       if should_transform_test == False: a dataframe with columns "playlist_id" and "track_id".
-    #       else: a dict with "playlist_id" as key and a list of "track_id" as value.
-    # - "recommendations" is a dict with "playlist_id" as key and a list of "track_id" as value.
-
+    """
+     - "test" is:
+           if should_transform_test == False: a dataframe with columns "playlist_id" and "track_id".
+           else: a dict with "playlist_id" as key and a list of "track_id" as value.
+     - "recommendations" is a dataframe with "playlist_id" and "track_id" as numpy.ndarray value.
+    """
     if should_transform_test:
         # Tranform "test" in a dict:
         #   key: playlist_id
         #   value: list of track_ids
-        test_good = preprocess.get_playlist_track_list(test)
+        test_df = preprocess.get_playlist_track_list2(test)
     else:
-        test_good = test
+        test_df = test
 
     mean_ap = 0
-    for pl_id, tracks in recommendations.items():
+    for _,row in recommendations.iterrows():
+        pl_id = row['playlist_id']
+        tracks = row['track_ids']
         correct = 0
         ap = 0
         for it, t in enumerate(tracks):
-            if t in test_good[pl_id]:
+            if t in test_df.loc[pl_id]['track_ids']:
                 correct += 1
                 ap += correct / (it+1)
         ap /= len(tracks)
@@ -61,4 +64,4 @@ def train_test_split(train, test_size=0.3, min_playlist_tracks=7):
     test = train.loc[indexes].copy()
     train = train.drop(indexes)
 
-    return train, test, target_playlists, target_tracks
+    return train, test, pd.DataFrame(target_playlists, columns=['playlist_id']), pd.DataFrame(target_tracks, columns=['track_id'])

@@ -33,8 +33,8 @@ def get_tracks():
     return tracks
 
 def get_playlist_track_list(urm):
-    """ 
-        Returns a dictionary with: 
+    """
+        Returns a dictionary with:
             key: playlist id
             value: array of tracks in such playlist
         The URM is the matrix with pairs "playlist_id"x"track_id" (i.e. train_final.csv)
@@ -49,10 +49,19 @@ def get_playlist_track_list(urm):
 
     return playlist_content
 
+def get_playlist_track_list2(urm):
+    """
+        Returns a dataframe with column 'playlist_id' and column 'tracks'. The column tracks is of type numpy.ndarray
+    """
+    ret = pd.DataFrame(urm['playlist_id'].drop_duplicates())
+    ret.index = urm['playlist_id'].unique()
+    ret['track_ids'] = urm.groupby('playlist_id').apply(lambda x : x['track_id'].values)
+    return ret
+
 def get_most_popular_tracks(urm):
-    """ 
+    """
         Returns a pandas dataframe with track_id as index and its popularity in the "playlist_id" column,
-        in descending order. 
+        in descending order.
         The URM is the matrix with pairs "playlist_id"x"track_id" (i.e. train_final.csv)
     """
     return urm.groupby('track_id').count().sort_values('playlist_id', ascending=False)
