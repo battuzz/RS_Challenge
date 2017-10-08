@@ -9,12 +9,10 @@ target_playlist = get_target_playlists()
 target_tracks = get_target_tracks()
 
 
-
 #train, test = model_selection.train_test_split(train, test_size=0.20, random_state=RANDOM_STATE)
 
 most_popular = get_most_popular_tracks(train)
 tracks_in_playlist = get_playlist_track_list(train)
-
 
 tracks_to_suggest = most_popular.index.values
 predictions = []
@@ -26,6 +24,7 @@ for it,row in target_playlist.iterrows():
     while count < 5:
         if tracks_to_suggest[i] not in tracks_in_playlist[row['playlist_id']]:
             # Predict track i
+            # IMPORTANT: should we check if the track to suggest is in target_tracks?
             pred.append(tracks_to_suggest[i])
             count += 1
         i += 1

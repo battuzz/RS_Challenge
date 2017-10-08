@@ -9,25 +9,36 @@ import os
 DATA_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
 
 def get_train():
+    """ Returns a pandas dataframe containing train_final.csv """
     return pd.read_csv(DATA_FOLDER + '/train_final.csv', sep='\t')
 
 def get_playlist():
+    """ Returns a pandas dataframe containing playlist_final.csv """
     playlists = pd.read_csv(DATA_FOLDER + '/playlists_final.csv', delimiter='\t')
     return playlists
 
 def get_target_playlists():
+    """ Returns a pandas dataframe containing target_playlist.csv """
     target_playlists = pd.read_csv(DATA_FOLDER + '/target_playlists.csv', delimiter='\t')
     return target_playlists
 
 def get_target_tracks():
+    """ Returns a pandas dataframe containing target_tracks.csv """
     target_tracks = pd.read_csv(DATA_FOLDER + '/target_tracks.csv', delimiter = '\t')
     return target_tracks
 
 def get_tracks():
+    """ Returns a pandas dataframe containing tracks_final.csv """
     tracks = pd.read_csv(DATA_FOLDER + '/tracks_final.csv', delimiter='\t')
     return tracks
 
 def get_playlist_track_list(urm):
+    """ 
+        Returns a dictionary with: 
+            key: playlist id
+            value: array of tracks in such playlist
+        The URM is the matrix with pairs "playlist_id"x"track_id" (i.e. train_final.csv)
+    """
     playlist_content = {}
     for _,row in urm.iterrows():
         playlist_id = row['playlist_id']
@@ -39,9 +50,19 @@ def get_playlist_track_list(urm):
     return playlist_content
 
 def get_most_popular_tracks(urm):
+    """ 
+        Returns a pandas dataframe with track_id as index and its popularity in the "playlist_id" column,
+        in descending order. 
+        The URM is the matrix with pairs "playlist_id"x"track_id" (i.e. train_final.csv)
+    """
     return urm.groupby('track_id').count().sort_values('playlist_id', ascending=False)
 
 def get_albums(tracks):
+    """
+        Returns a dict where:
+            key: album_id
+            value: list of track ids
+    """
     albums = {}
     for _,row in tracks.iterrows():
         album = row['album'][1:-1]
@@ -53,6 +74,11 @@ def get_albums(tracks):
     return albums
 
 def get_owners(playlists):
+    """
+        Returns a dict where:
+            key: owner_id
+            value: list of playlist ids
+    """
     owners = {}
     for _,row in playlists.iterrows():
         owner = row['owner']
@@ -63,6 +89,11 @@ def get_owners(playlists):
     return owners
 
 def get_tags(tracks):
+    """
+        Returns a dict where:
+            key: tag_id
+            value: list of track ids
+    """
     tags = {}
     for _,row in tracks.iterrows():
         t = list(map(lambda x : x.strip(), row['tags'][1:-1].split(',')))
@@ -75,6 +106,11 @@ def get_tags(tracks):
     return tags
 
 def get_artists(tracks):
+    """
+        Returns a dict where:
+            key: artist_id
+            value: list of track ids
+    """
     artists = {}
     for _,row in tracks.iterrows():
         artist_id = row['artist_id']
