@@ -60,11 +60,18 @@ def get_playlist_track_list2(urm):
 
 def get_most_popular_tracks(urm):
     """
-        Returns a pandas dataframe with track_id as index and its popularity in the "playlist_id" column,
-        in descending order.
+        Returns a pandas dataframe with:
+            index:
+                - track_id
+            columns:
+                - track_id
+                - its popularity
+        They are in in descending order according to their popularity.
         The URM is the matrix with pairs "playlist_id"x"track_id" (i.e. train_final.csv)
     """
-    return urm.groupby('track_id').count().sort_values('playlist_id', ascending=False)
+    res = urm.groupby('track_id').count().sort_values('playlist_id', ascending=False)
+    res['track_id'] = res.index
+    return res.rename(columns={'playlist_id': 'count'})
 
 def get_albums(tracks):
     """
