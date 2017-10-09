@@ -168,9 +168,16 @@ def tag_binary(track, relevant_tags):
     return ret
 
 def get_track_tags_binary(tracks):
-    """ Returns a numpy matrix such that a_ij = 1 means that track i has tag j """
+    """ Returns a dataframe with an additional column binary_tags """
     relevant_tags = get_relevant_tags(get_cached_tags())
-    return np.apply_along_axis(tag_binary, 1, tracks.values, relevant_tags)
+    try:
+        tracks['tags'] = tracks['tags'].apply(lambda x : np.array(eval(x)))
+    except:
+        pass
+    binary_tags =  np.array([1 * np.isin(relevant_tags,v) for v in tracks['tags'].values])
+    tracks['binary_tags'] = [l for l in binary_tags]
+    return tracks
+
 
 
 def gen_cache():
