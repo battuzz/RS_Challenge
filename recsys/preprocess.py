@@ -174,9 +174,10 @@ def tag_binary(track, relevant_tags):
 
     return ret
 
-def get_track_tags_binary(tracks):
+def get_track_tags_binary(tracks, cut_off=500, relevant_tags=""):
     """ Returns a dataframe with an additional column binary_tags """
-    relevant_tags = get_relevant_tags(get_cached_tags())
+    if relevant_tags == "":
+        relevant_tags = get_relevant_tags(get_cached_tags(), cut_off=cut_off)
     try:
         tracks['tags'] = tracks['tags'].apply(lambda x : np.array(eval(x)))
     except:
