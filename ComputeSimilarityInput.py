@@ -10,6 +10,7 @@ from scipy.sparse.linalg import svds
 from recsys.preprocess import *
 from recsys.utility import *
 import sys
+import os
 
 RANDOM_STATE = 2342
 
@@ -51,7 +52,7 @@ def print_track(id, pot):
     res.append(t['track_id'])
 
     album = t['album'][1:-1]
-    if (album == ''):
+    if (album == '' or album == 'None' or album is None):
         res.append(-1)
     else:
         res.append(album)
@@ -110,10 +111,11 @@ if __name__ == '__main__':
     print("Getting pot")
     pot = get_pot(train)
     print("Printing file")
-    output_file(base_name + "_input.txt", pot)
+    output_file(os.path.join(base_name, "input.txt"), pot)
 
+    print("Saving csv files")
+    target_playlist.to_csv(os.path.join(base_name,  "target_playlists.csv"), index=False)
+    target_tracks.to_csv(os.path.join(base_name, "target_tracks.csv"), index=False)
+    train.to_csv(os.path.join(base_name, "train.csv"), index=False)
     if split:
-        print("Saving test files")
-        test.to_csv(base_name + "_test.csv")
-        target_playlist.to_csv(base_name + "_target_playlist.csv")
-        target_tracks.to_csv(base_name + "_target_tracks.csv")
+        test.to_csv(os.path.join(base_name, "test.csv"), index=False)

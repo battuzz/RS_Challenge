@@ -7,7 +7,7 @@
 using namespace std;
 
 
-const int K = 30;
+const int K = 20;
 
 
 float gen_rand() {
@@ -116,8 +116,11 @@ void compute_similarity(Metric* metric, vector<Track>& tracks, vector<vector<flo
             topn.push(metric->dist(tracks[i], tracks[j]), j);
         }
 
-        similarity.push_back(topn.elems);
-        indexes.push_back(topn.idxs);
+
+        vector<float> elms(topn.elems);
+        vector<int> idx(topn.idxs);
+        similarity.push_back(elms);
+        indexes.push_back(idx);
     }
 }
 
@@ -163,6 +166,7 @@ int main(int argc, char *argv[]) {
         vector<int> playlist;
 
         cin >> id >> album_id >> artist_id >> duration >> playcount >> ntags;
+
         for (int j = 0; j < ntags; j++) {
             cin >> t;
             tags.push_back(t);
