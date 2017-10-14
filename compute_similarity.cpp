@@ -4,13 +4,17 @@
 #include <utility>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
+#include <map>
 #include <set>
 #include <memory>
+#include "omp.h"
 
 using namespace std;
 
 
-const int K = 50;
+const int K = 20;
+string base_name;
 
 float gen_rand() {
     return ((float) rand() / (RAND_MAX));
@@ -28,7 +32,7 @@ public:
 class Metric {
 public:
     virtual float dist(const Track& t1, const Track& t2) = 0;
-    virtual void print_weights() = 0;
+    virtual void print_weights(ofstream& output) = 0;
 };
 
 class LinearMetric : public Metric {
@@ -46,8 +50,8 @@ public:
         : w_artist(w_artist), w_album(w_album), w_duration(w_duration), w_playcount(w_playcount), w_tags(w_tags), w_playlist(w_playlist)
          {
          }
-    void print_weights() {
-        cout << w_artist << " " << w_album << " " << w_duration << " " << w_playcount << " " << w_tags << " " << w_playlist << endl;
+    void print_weights(ofstream& output) {
+        output << w_artist << " " << w_album << " " << w_duration << " " << w_playcount << " " << w_tags << " " << w_playlist << endl;
     }
 
     float dist(const Track& t1, const Track& t2) {
@@ -129,8 +133,9 @@ void compute_similarity(unique_ptr<Metric> &metric, vector<Track>& tracks, vecto
     similarity.clear();
     indexes.clear();
 
-    similarity.resize(tracks.size());
-    indexes.resize(tracks.size());
+    similarity.assign(tracks.size(), vector<float>());
+    indexes.assign(tracks.size(), vector<int>());
+
     #pragma omp parallel for
     for (int i = 0; i < tracks.size(); i++) {
         auto topn = TopNElements(K);
@@ -138,23 +143,25 @@ void compute_similarity(unique_ptr<Metric> &metric, vector<Track>& tracks, vecto
             topn.push(metric->dist(tracks[i], target_tracks[j]), mapping[j]);
         }
 
-
         vector<float> elms(topn.elems);
         vector<int> idx(topn.idxs);
-        //similarity.push_back(elms);
-        //indexes.push_back(idx);
+
         similarity[i] = elms;
         indexes[i] = idx;
+
+        if (i % 500 == 0) {
+            printf("Track %d of %d for thread %d\n", i, tracks.size()*(1 + omp_get_thread_num())/omp_get_num_threads(), omp_get_thread_num());
+        }
     }
 }
 
 
 
-Metric *parse_args(int argc, char *argv[]) {
+Metric *parse_similarity_args(int argc, char *argv[]) {
     Metric *m;
-    if (argc < 2)
+    if (argc < 3)
         m = new LinearMetric();
-    else if (argc == 7) {
+    else if (argc == 8) {
         float w_artist, w_album, w_duration, w_playcount, w_tags, w_playlist;
         w_artist = atof(argv[1]);
         w_album = atof(argv[2]);
@@ -188,34 +195,29 @@ void get_target_tracks(set<int> &ttracks) {
     fs.close();
 }
 
-void predict(vector<Playlist>& playlists, vector<Playlist>& target_playlist, vector<Track>& track_playlist, vector<vector<float>> &similarity) {
 
-}
-
-
-
-
-
-void read_input(vector<Track> &tracks, vector<Track>& target_tracks, vector<int>& mapping) {
+void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int>& mapping) {
     set<int> ttracks;
     get_target_tracks(ttracks);
 
     int N, id, album_id, artist_id, duration, playcount, ntags, t, nplaylist;
 
-    cin >> N;
+    ifstream input (base_name + "/input.txt");
+    input >> N;
+
     for (int i = 0; i < N; i++) {
         vector<int> tags;
         vector<int> playlist;
 
-        cin >> id >> album_id >> artist_id >> duration >> playcount >> ntags;
+        input >> id >> album_id >> artist_id >> duration >> playcount >> ntags;
 
         for (int j = 0; j < ntags; j++) {
-            cin >> t;
+            input >> t;
             tags.push_back(t);
         }
-        cin >> nplaylist;
+        input >> nplaylist;
         for (int j = 0; j < nplaylist; j++) {
-            cin >> t;
+            input >> t;
             playlist.push_back(t);
         }
         sort(tags.begin(), tags.end());
@@ -230,29 +232,55 @@ void read_input(vector<Track> &tracks, vector<Track>& target_tracks, vector<int>
     }
 }
 
-
-void print_output(vector<vector<float>> similarity, vector<vector<int>> indexes) {
+void print_similarity(ofstream& output, vector<vector<float>>& similarity, vector<vector<int>>& indexes) {
     // Print rows
     for (int i = 0; i < similarity.size(); i++)
         for (int j = 0; j < similarity[i].size(); j++)
-            cout << i << " ";
-    cout << endl;
+            output << i << " ";
+    output << endl;
 
     // Print cols
     for (int i = 0; i < similarity.size(); i++)
         for (int j = 0; j < similarity[i].size(); j++) {
-            cout << indexes[i][j] << " ";
+            output << indexes[i][j] << " ";
         }
-    cout << endl;
+    output << endl;
 
     // Print data
     for (int i = 0; i < similarity.size(); i++) {
         for (int j = 0; j < similarity[i].size(); j++)
-            cout << similarity[i][j] << " ";
+            output << similarity[i][j] << " ";
     }
-    cout << endl;
+    output << endl;
 }
 
+void read_popular_tracks(map<int, float>& popular_tracks) {
+    ifstream input (base_name + "/popular_tracks.txt");
+
+    int N;
+    input >> N;
+
+    while (N--) {
+        int track_id;
+        float weight;
+        input >> track_id >> weight;
+        popular_tracks[track_id] = weight;
+    }
+}
+
+void read_popular_tags(map<int, float>& popular_tags) {
+    ifstream input (base_name + "/popular_tags.txt");
+
+    int N;
+    input >> N;
+
+    while (N--) {
+        int tag_id;
+        float weight;
+        input >> tag_id >> weight;
+        popular_tags[tag_id] = weight;
+    }
+}
 
 int main(int argc, char *argv[]) {
     ios_base::sync_with_stdio(false);
@@ -263,14 +291,26 @@ int main(int argc, char *argv[]) {
     vector<int> mapping;
     vector<vector<float>> similarity;
     vector<vector<int>> indexes;
+    map<int, float> popular_tracks;
+    map<int, float> popular_tags;
 
+    unique_ptr<Metric> metric(parse_similarity_args(argc, argv));
+    base_name = string(argv[7]);
 
-    read_input(tracks, target_tracks, mapping);
+    cout << "Reading tracks..." << endl;
+    read_tracks(tracks, target_tracks, mapping);
+    cout << "Reading popular tracks..." << endl;
+    read_popular_tracks(popular_tracks);
+    cout << "Reading popular tags..." << endl;
+    read_popular_tags(popular_tags);
 
-    unique_ptr<Metric> metric(parse_args(argc, argv));
+    cout << "Creating similarity matrix..." << endl;
     compute_similarity(metric, tracks, target_tracks, mapping, similarity, indexes, K);
 
+    ofstream output;
+    output.open (base_name + "/similarity.txt");
 
-    metric->print_weights();
-    print_output(similarity, indexes);
+    metric->print_weights(output);
+    cout << "Printing similarity matrix..." << endl;
+    print_similarity(output, similarity, indexes);
 }
