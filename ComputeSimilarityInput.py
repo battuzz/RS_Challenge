@@ -210,7 +210,7 @@ if __name__ == '__main__':
     print("Saving target_playlists.txt, target_tracks.txt")#, train.txt")
     #output_target_playlists(os.path.join(base_name, "target_playlists.txt"))
     target_playlists.to_csv(os.path.join(base_name,  "target_playlists.csv"), index=False)
-    #output_target_tracks(os.path.join(base_name, "target_tracks.txt"))
+    output_target_tracks(os.path.join(base_name, "target_tracks.txt"))
     target_tracks.to_csv(os.path.join(base_name, "target_tracks.csv"), index=False)
     #output_train_test(os.path.join(base_name, "train.txt"), train)
     train.to_csv(os.path.join(base_name, "train.csv"), index=False)
