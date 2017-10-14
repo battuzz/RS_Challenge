@@ -66,13 +66,14 @@ def predict_for_playlist(pl_id, S_csr):
         r_data = S_csr.data[r_start:r_end]
         for i,c in enumerate(r_indices):
             try:
-                c_track_id = from_row_num_to_track_id(tracks_target_only, c)
+                c_track_id = from_row_num_to_track_id(tracks, c)
                 if c_track_id not in suggested_tracks:
                     suggested_tracks[c_track_id] = r_data[i]
                 else:
                     suggested_tracks[c_track_id] += r_data[i]
             except:
                 pass
+
     suggested_tracks = [k for k,v in sorted([(k, v) for k, v in suggested_tracks.items()], key=lambda tup: tup[1], reverse=True)]
     i = 0
     count = 0
@@ -111,8 +112,6 @@ if __name__ == '__main__':
         has_test = True
 
     predictions = make_predictions(location)
-
-    print(predictions.head())
 
     if has_test:
         print("Evaluating....")
