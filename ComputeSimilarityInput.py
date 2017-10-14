@@ -88,7 +88,7 @@ def output_file(filename, pot):
         for i in tracks.index:
             c+=1
             if c % 2000 == 0:
-                print("Track {0} of {1}".format(c, len(pot)))
+                print("Track {0} of {1}".format(c, len(tracks)))
             out.write(print_track(i, pot) + '\n')
 
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     if (len(sys.argv) >= 3 and sys.argv[2] == '--split'):
         split = True
         print("Splitting dataset")
-        train, test, target_playlists, target_tracks = train_test_split(train)
+        train, test, target_playlists, target_tracks = train_test_split(train, test_size=0.3, min_playlist_tracks=8)
 
     print("Getting pot")
     pot = get_pot(train)

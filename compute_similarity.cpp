@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include "omp.h"
 
 using namespace std;
 
@@ -114,20 +115,25 @@ public:
 void compute_similarity(Metric* metric, vector<Track>& tracks, vector<vector<float>>& similarity, vector<vector<int>>& indexes, int K = 30) {
     similarity.clear();
     indexes.clear();
+
+    similarity.assign(tracks.size(), vector<float>());
+    indexes.assign(tracks.size(), vector<int>());
+
+    #pragma omp parallel for
     for (int i = 0; i < tracks.size(); i++) {
         auto topn = TopNElements(K);
         for (int j = 0; j < tracks.size(); j++) {
             topn.push(metric->dist(tracks[i], tracks[j]), j);
         }
 
-
         vector<float> elms(topn.elems);
         vector<int> idx(topn.idxs);
-        similarity.push_back(elms);
-        indexes.push_back(idx);
+
+        similarity[i] = elms;
+        indexes[i] = idx;
 
         if (i % 500 == 0) {
-            printf("Track %d of %d\n", i, tracks.size());
+            printf("Track %d of %d for thread %d\n", i, tracks.size()*(1 + omp_get_thread_num())/omp_get_num_threads(), omp_get_thread_num());
         }
     }
 }
