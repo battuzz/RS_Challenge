@@ -55,8 +55,14 @@ def load_similarity(location):
 
     return csr
 
+counter = 0
 def predict_for_playlist(pl_id, S_csr):
-    global train, playlists, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only
+    global train, playlists, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only, counter
+    
+    counter += 1
+    if counter % 200 == 0:
+        print(str(counter) + " of " + str(len(target_playlists)))
+
     suggested_tracks = {}
     for tr_id in tracks_in_playlist.loc[pl_id]['track_ids']:
         row_S = from_track_id_to_row_num(tracks, tr_id)
