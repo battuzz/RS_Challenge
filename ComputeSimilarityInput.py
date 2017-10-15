@@ -133,6 +133,12 @@ def output_popular_tags(filename):
     tags_popular_file.write(res)
     tags_popular_file.close()
 
+def output_target_tracks(filename):
+    with open(filename, 'w') as f:
+        f.write("{0}\n".format(len(target_tracks)))
+        for t in target_tracks['track_id'].values:
+            f.write("{0} ".format(t))
+        f.write('\n')
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -164,4 +170,4 @@ if __name__ == '__main__':
     print("Getting popular tags")
     output_popular_tags(os.path.join(base_name, "popular_tags.txt"))
 
-
+    output_target_tracks(os.path.join(base_name, "target_tracks.txt"))

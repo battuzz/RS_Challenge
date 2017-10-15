@@ -56,7 +56,7 @@ public:
 
     float dist(const Track& t1, const Track& t2) {
         int tags_in_common = 0, playlist_in_common = 0;
-        int i = 0, j = 0;
+         int i = 0, j = 0;
         while (i < t1.tags.size() && j < t2.tags.size()) {
             if (t1.tags[i] == t2.tags[j])
                 tags_in_common++, i++, j++;
@@ -137,9 +137,9 @@ void compute_similarity(unique_ptr<Metric> &metric, vector<Track>& tracks, vecto
     indexes.assign(tracks.size(), vector<int>());
 
     #pragma omp parallel for
-    for (int i = 0; i < tracks.size(); i++) {
+    for ( int i = 0; i < tracks.size(); i++) {
         auto topn = TopNElements(K);
-        for (int j = 0; j < target_tracks.size(); j++) {
+        for ( int j = 0; j < target_tracks.size(); j++) {
             topn.push(metric->dist(tracks[i], target_tracks[j]), mapping[j]);
         }
 
@@ -179,9 +179,9 @@ Metric *parse_similarity_args(int argc, char *argv[]) {
 }
 
 
-void get_target_tracks(set<int> &ttracks) {
+void get_target_tracks(string base_name, set<int> &ttracks) {
     fstream fs;
-    fs.open("target_tracks_simple.txt", std::fstream::in);
+    fs.open(base_name + "/target_tracks.txt", std::fstream::in);
     ttracks.clear();
 
     int N;
@@ -198,7 +198,7 @@ void get_target_tracks(set<int> &ttracks) {
 
 void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int>& mapping) {
     set<int> ttracks;
-    get_target_tracks(ttracks);
+    get_target_tracks(base_name, ttracks);
 
     int N, id, album_id, artist_id, duration, playcount, ntags, t, nplaylist;
 
@@ -234,21 +234,21 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
 
 void print_similarity(ofstream& output, vector<vector<float>>& similarity, vector<vector<int>>& indexes) {
     // Print rows
-    for (int i = 0; i < similarity.size(); i++)
-        for (int j = 0; j < similarity[i].size(); j++)
+    for ( int i = 0; i < similarity.size(); i++)
+        for ( int j = 0; j < similarity[i].size(); j++)
             output << i << " ";
     output << endl;
 
     // Print cols
-    for (int i = 0; i < similarity.size(); i++)
-        for (int j = 0; j < similarity[i].size(); j++) {
+    for ( int i = 0; i < similarity.size(); i++)
+        for ( int j = 0; j < similarity[i].size(); j++) {
             output << indexes[i][j] << " ";
         }
     output << endl;
 
     // Print data
-    for (int i = 0; i < similarity.size(); i++) {
-        for (int j = 0; j < similarity[i].size(); j++)
+    for ( int i = 0; i < similarity.size(); i++) {
+        for ( int j = 0; j < similarity[i].size(); j++)
             output << similarity[i][j] << " ";
     }
     output << endl;
@@ -283,7 +283,6 @@ void read_popular_tags(map<int, float>& popular_tags) {
 }
 
 int main(int argc, char *argv[]) {
-    ios_base::sync_with_stdio(false);
     srand(time(NULL));
 
     vector<Track> tracks;
