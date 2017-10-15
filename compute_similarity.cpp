@@ -19,6 +19,7 @@ string base_name;
 
 map<int, float> popular_tracks;
 map<int, float> popular_tags;
+map<int, vector<int>> tracks_in_playlist;
 
 float gen_rand() {
     return ((float) rand() / (RAND_MAX));
@@ -60,7 +61,7 @@ public:
     }
 
     float dist(const Track& t1, const Track& t2) {
-        int tags_in_common = 0, playlist_in_common = 0;
+        float tags_in_common = 0, playlist_in_common = 0;
         int i = 0, j = 0;
         while (i < t1.tags.size() && j < t2.tags.size()) {
             if (t1.tags[i] == t2.tags[j]) {
@@ -73,8 +74,16 @@ public:
                 i++;
         }
         while (i < t1.playlist.size() && j < t2.playlist.size()) {
-            if (t1.playlist[i] == t2.playlist[j])
-                playlist_in_common++, i++, j++;
+            vector<int> tracks_1;
+            vector<int> tracks_2;
+            if (tracks_in_playlist.find(t1.playlist[i]) != tracks_in_playlist.end() && tracks_in_playlist.find(t2.playlist[j]) != tracks_in_playlist.end()) {
+                tracks_1 = tracks_in_playlist[t1.playlist[i]];
+                tracks_2 = tracks_in_playlist[t2.playlist[j]];
+            }
+            if (t1.playlist[i] == t2.playlist[j]) {
+                playlist_in_common += 4.0f/(tracks_1.size() + tracks_2.size());
+                i++, j++;
+            }
             else if (t1.playlist[i] > t2.playlist[j])
                 j++;
             else
@@ -87,7 +96,12 @@ public:
         } else {
             pop_track = popular_tracks[t1.id] + popular_tracks[t2.id];
         }
-
+        /*
+        cout << "tags_in_common " << tags_in_common << endl;
+        cout << "playlist_in_common " << playlist_in_common << endl;
+        cout << "dur " << exp(-abs(t1.duration - t2.duration)/10000.0) << endl;
+        cout << "playc " << exp(-abs(t1.playcount - t2.playcount)/100.0) << endl;
+        */
         return
             ( w_artist * ((t1.artist_id == -1 || t2.artist_id == -1) ? 0 : t1.artist_id == t2.artist_id)
             + w_album * ((t1.album_id == -1 || t2.album_id == -1) ? 0 : t1.album_id == t2.album_id)
@@ -321,6 +335,30 @@ void read_popular_tags(map<int, float>& popular_tags) {
     }
 }
 
+void read_tracks_in_playlist(map<int, vector<int>>& tracks_in_playlist) {
+    ifstream input (base_name + "/tracks_in_playlist.txt");
+
+    if (!input) {
+        printf("Error opening tracks_in_playlist.txt\n");
+        exit(0);
+    }
+
+    int N;
+    input >> N;
+
+    while (N--) {
+        int pl_id, n_tr;
+        input >> pl_id >> n_tr;
+        vector<int> tr_ids;
+        while (n_tr--) {
+            int tr_id;
+            input >> tr_id;
+            tr_ids.push_back(tr_id);
+        }
+        tracks_in_playlist[pl_id] = tr_ids;
+    }
+}
+
 int main(int argc, char *argv[]) {
     srand(time(NULL));
 
@@ -339,6 +377,8 @@ int main(int argc, char *argv[]) {
     read_popular_tracks(popular_tracks);
     cout << "Reading popular tags..." << endl;
     read_popular_tags(popular_tags);
+    cout << "Reading tracks in playlist..." << endl;
+    read_tracks_in_playlist(tracks_in_playlist);
 
     cout << tracks.size() << endl;
     cout << target_tracks.size() << endl;
