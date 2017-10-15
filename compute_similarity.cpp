@@ -9,6 +9,7 @@
 #include <set>
 #include <memory>
 #include "omp.h"
+#include <math.h> 
 
 using namespace std;
 
@@ -63,7 +64,7 @@ public:
         int i = 0, j = 0;
         while (i < t1.tags.size() && j < t2.tags.size()) {
             if (t1.tags[i] == t2.tags[j]) {
-                tags_in_common += (1.1 - popular_tags[t1.tags[i]]);
+                tags_in_common += popular_tags[t1.tags[i]];
                 i++, j++;
             }
             else if (t1.tags[i] > t2.tags[j])
@@ -90,8 +91,8 @@ public:
         return
             ( w_artist * ((t1.artist_id == -1 || t2.artist_id == -1) ? 0 : t1.artist_id == t2.artist_id)
             + w_album * ((t1.album_id == -1 || t2.album_id == -1) ? 0 : t1.album_id == t2.album_id)
-            + w_duration * (abs(t1.duration - t2.duration)/10000.0)
-            + w_playcount * (abs(t1.playcount - t2.playcount)/10.0)
+            + w_duration * exp(-abs(t1.duration - t2.duration)/10000.0)
+            + w_playcount * exp(-abs(t1.playcount - t2.playcount)/100.0)
             + w_tags * (tags_in_common)
             + w_playlist * (playlist_in_common)
             + w_popularity_track * pop_track

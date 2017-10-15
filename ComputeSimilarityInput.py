@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import *
 from scipy.sparse.linalg import svds
+import math
 
 from recsys.preprocess import *
 from recsys.utility import *
@@ -119,8 +120,7 @@ def output_popular_tags(filename):
             else:
                 tags[t] = 1
     sorted_tags = sorted([(k, v) for k, v in tags.items()], key=lambda tup: tup[1], reverse=True)
-    max_tags = sorted_tags[0][1]
-    sorted_tags = list(map(lambda tup: (tup[0], tup[1]/max_tags), sorted_tags))
+    sorted_tags = list(map(lambda tup: (tup[0], math.log(100000 / tup[1])), sorted_tags))
     tags_popular_file = open(filename,"w")
     tags_popular_file.write(str(len(sorted_tags)) + "\n")
     res = ""
