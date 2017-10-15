@@ -12,6 +12,7 @@ def print_weights(weights):
 	print("w_playcount: " + str(weights['w_playcount'][0]))
 	print("w_tags: " + str(weights['w_tags'][0]))
 	print("w_playlist: " + str(weights['w_playlist'][0]))
+	print("w_popularity_track: " + str(weights['w_popularity_track'][0]))
 
 
 last_change_key = "w_playlist"
@@ -50,12 +51,13 @@ if __name__ == '__main__':
 	# 	- first: starting value
 	# 	- second: allowed variation of such attribute
 	weights = {
-		'w_artist' : (1, 0.1),
-		'w_album' : (1.5, 0.1),
-		'w_duration' : (0, 0),
-		'w_playcount' : (0, 0),
-		'w_tags' : (0.3, 0.03),
-		'w_playlist' : (0.2, 0.03)
+		'w_artist' : [1, 0.1],
+		'w_album' : [1.5, 0.1],
+		'w_duration' : [0, 0],
+		'w_playcount' : [0, 0],
+		'w_tags' : [0.3, 0.03],
+		'w_playlist' : [0.2, 0.03],
+		'w_popularity_track' : [2, 0.4]
 	}
 	prev_weights = copy.deepcopy(weights)
 
@@ -65,7 +67,7 @@ if __name__ == '__main__':
 		print("~~~~~ CALLING compute_similarity ~~~~~")
 		call(["./compute_similarity", str(weights['w_artist'][0]), str(weights['w_album'][0]),
 			str(weights['w_duration'][0]), str(weights['w_playcount'][0]), str(weights['w_tags'][0]),
-			str(weights['w_playlist'][0]), "temp"])
+			str(weights['w_playlist'][0]), str(weights['w_popularity_track'][0]), "temp"])
 
 		# Step 3: Make predictions
 		print("~~~~~ CALLING PredictSimilarity.py ~~~~~")

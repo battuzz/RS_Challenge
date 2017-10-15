@@ -7,7 +7,6 @@ from recsys.preprocess import *
 from recsys.utility import *
 
 train = None
-playlists = None
 tracks = None
 target_playlists = None
 target_tracks = None
@@ -15,13 +14,13 @@ tracks_in_playlist = None
 tracks_target_only = None
 
 def load_things(location):
-    global train, playlists, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only
+    global train, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only
 
     train = pd.read_csv(os.path.join(location, 'train.csv'))
     target_playlists = pd.read_csv(os.path.join(location, 'target_playlists.csv'))
     target_tracks = pd.read_csv(os.path.join(location, 'target_tracks.csv'))
 
-    playlists = pd.read_csv('data/playlists_final.csv', delimiter='\t')
+    #playlists = pd.read_csv('data/playlists_final.csv', delimiter='\t')
     tracks = pd.read_csv('data/tracks_final.csv', delimiter='\t')
 
     tracks['tags'] = tracks['tags'].apply(lambda x: np.array(eval(x)))
@@ -57,7 +56,7 @@ def load_similarity(location):
 
 counter = 0
 def predict_for_playlist(pl_id, S_csr):
-    global train, playlists, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only, counter
+    global train, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only, counter
     
     counter += 1
     if counter % 200 == 0:
@@ -65,27 +64,30 @@ def predict_for_playlist(pl_id, S_csr):
 
     suggested_tracks = {}
     for tr_id in tracks_in_playlist.loc[pl_id]['track_ids']:
-        row_S = from_track_id_to_row_num(tracks, tr_id)
-        r_start = S_csr.indptr[row_S]
-        r_end = S_csr.indptr[row_S + 1]
-        r_indices = S_csr.indices[r_start:r_end]
-        r_data = S_csr.data[r_start:r_end]
-        for i,c in enumerate(r_indices):
-            try:
-                c_track_id = from_row_num_to_track_id(tracks, c)
-                if c_track_id not in suggested_tracks:
-                    suggested_tracks[c_track_id] = r_data[i]
-                else:
-                    suggested_tracks[c_track_id] += r_data[i]
-            except:
-                pass
+        try:
+            row_S = from_track_id_to_row_num(tracks, tr_id)
+            r_start = S_csr.indptr[row_S]
+            r_end = S_csr.indptr[row_S + 1]
+            r_indices = S_csr.indices[r_start:r_end]
+            r_data = S_csr.data[r_start:r_end]
+            for i,c in enumerate(r_indices):
+                try:
+                    c_track_id = from_row_num_to_track_id(tracks, c)
+                    if c_track_id not in suggested_tracks:
+                        suggested_tracks[c_track_id] = r_data[i]
+                    else:
+                        suggested_tracks[c_track_id] += r_data[i]
+                except:
+                    pass
+        except:
+            pass
 
     suggested_tracks = [k for k,v in sorted([(k, v) for k, v in suggested_tracks.items()], key=lambda tup: tup[1], reverse=True)]
     i = 0
     count = 0
     pred = []
     while count < 5:
-        if suggested_tracks[i] not in tracks_in_playlist.loc[pl_id]['track_ids']:
+        if len(suggested_tracks) > i and suggested_tracks[i] not in tracks_in_playlist.loc[pl_id]['track_ids']:
             # Predict track i
             pred.append(suggested_tracks[i])
             count += 1
@@ -93,7 +95,7 @@ def predict_for_playlist(pl_id, S_csr):
     return np.array(pred)
 
 def make_predictions(location):
-    global train, playlists, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only
+    global train, tracks, target_tracks, target_playlists, tracks_in_playlist, tracks_target_only
     load_things(location)
     S_csr = load_similarity(location)
 
