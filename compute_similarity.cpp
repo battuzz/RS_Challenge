@@ -30,8 +30,9 @@ public:
     int id, album_id, artist_id, duration, playcount;
     vector<int> tags;
     vector<int> playlist;
+    vector<int> playlist_len;
 
-    Track(int id, int album_id, int artist_id, int duration, int playcount, vector<int> &tags, vector<int>& playlist) : id(id), album_id(album_id), artist_id(artist_id), duration(duration), playcount(playcount), tags(tags), playlist(playlist) {}
+    Track(int id, int album_id, int artist_id, int duration, int playcount, vector<int> &tags, vector<int>& playlist, vector<int>& playlist_len) : id(id), album_id(album_id), artist_id(artist_id), duration(duration), playcount(playcount), tags(tags), playlist(playlist), playlist_len(playlist_len) {}
 };
 
 class Metric {
@@ -74,14 +75,8 @@ public:
                 i++;
         }
         while (i < t1.playlist.size() && j < t2.playlist.size()) {
-            vector<int> tracks_1;
-            vector<int> tracks_2;
-            if (tracks_in_playlist.find(t1.playlist[i]) != tracks_in_playlist.end() && tracks_in_playlist.find(t2.playlist[j]) != tracks_in_playlist.end()) {
-                tracks_1 = tracks_in_playlist[t1.playlist[i]];
-                tracks_2 = tracks_in_playlist[t2.playlist[j]];
-            }
             if (t1.playlist[i] == t2.playlist[j]) {
-                playlist_in_common += 4.0f/(tracks_1.size() + tracks_2.size());
+                playlist_in_common += 4.0f/(t1.playlist_len[i] + t2.playlist_len[j]);
                 i++, j++;
             }
             else if (t1.playlist[i] > t2.playlist[j])
@@ -251,6 +246,7 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
     for (int i = 0; i < N; i++) {
         vector<int> tags;
         vector<int> playlist;
+        vector<int> playlist_len;
 
         input >> id >> album_id >> artist_id >> duration >> playcount >> ntags;
 
@@ -265,10 +261,17 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
         }
         sort(tags.begin(), tags.end());
         sort(playlist.begin(), playlist.end());
+        for (int j = 0; j < nplaylist; j++) {
+            int len = 0;
+            if (tracks_in_playlist.find(playlist[j]) != tracks_in_playlist.end()) {
+                len = tracks_in_playlist[playlist[j]].size();
+            }
+            playlist_len.push_back(len);
+        }
 
-        tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist));
+        tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist, playlist_len));
         if (ttracks.find(id) != ttracks.end()) {
-            target_tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist));
+            target_tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist, playlist_len));
             mapping.push_back(i);
         }
 
@@ -371,14 +374,14 @@ int main(int argc, char *argv[]) {
     unique_ptr<Metric> metric(parse_similarity_args(argc, argv));
     base_name = string(argv[8]);
 
+    cout << "Reading tracks in playlist..." << endl;
+    read_tracks_in_playlist(tracks_in_playlist);
     cout << "Reading tracks..." << endl;
     read_tracks(tracks, target_tracks, mapping);
     cout << "Reading popular tracks..." << endl;
     read_popular_tracks(popular_tracks);
     cout << "Reading popular tags..." << endl;
     read_popular_tags(popular_tags);
-    cout << "Reading tracks in playlist..." << endl;
-    read_tracks_in_playlist(tracks_in_playlist);
 
     cout << tracks.size() << endl;
     cout << target_tracks.size() << endl;
