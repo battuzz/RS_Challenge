@@ -51,13 +51,13 @@ if __name__ == '__main__':
 	# 	- first: starting value
 	# 	- second: allowed variation of such attribute
 	weights = {
-		'w_artist' : [1, 0.1],
-		'w_album' : [1.5, 0.1],
+		'w_artist' : [1.5, 0.05],
+		'w_album' : [0.7, 0.05],
 		'w_duration' : [0, 0],
 		'w_playcount' : [0, 0],
-		'w_tags' : [0.3, 0.03],
-		'w_playlist' : [0.2, 0.03],
-		'w_popularity_track' : [2, 0.4]
+		'w_tags' : [0.05, 0.02],
+		'w_playlist' : [10, 0.5],
+		'w_popularity_track' : [0.1, 0.02]
 	}
 	prev_weights = copy.deepcopy(weights)
 
@@ -69,16 +69,12 @@ if __name__ == '__main__':
 			str(weights['w_duration'][0]), str(weights['w_playcount'][0]), str(weights['w_tags'][0]),
 			str(weights['w_playlist'][0]), str(weights['w_popularity_track'][0]), "temp"])
 
-		# Step 3: Make predictions
+		# Step 3: Make predictions and evaluate
 		print("~~~~~ CALLING PredictSimilarity.py ~~~~~")
-		call(["python", "PredictSimilarity.py", "temp", "--test"])
-
-		# Step 4: Evaluate
-		with open(os.path.join(location,'evaluation_result.txt'), 'r') as f:
-			score = float(f.readline())
+		score = call(["python", "predict_dot.py"])
 		print(score)
 
-		# Step 5: Change weights
+		# Step 4: Change weights
 		print_weights(weights)
 		if score > best_score:
 			print("New highscore!")
@@ -89,5 +85,5 @@ if __name__ == '__main__':
 			weights = copy.deepcopy(prev_weights)
 			change_weights(weights, keep_direction=False)
 
-		# Step 6: Go back to step 2
+		# Step 5: Go back to step 2
 

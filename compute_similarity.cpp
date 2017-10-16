@@ -14,11 +14,12 @@
 using namespace std;
 
 
-const int K = 40;
+const int K = 20;
 string base_name;
 
 map<int, float> popular_tracks;
 map<int, float> popular_tags;
+map<int, vector<int>> tracks_in_playlist;
 
 float gen_rand() {
     return ((float) rand() / (RAND_MAX));
@@ -29,8 +30,9 @@ public:
     int id, album_id, artist_id, duration, playcount;
     vector<int> tags;
     vector<int> playlist;
+    vector<int> playlist_len;
 
-    Track(int id, int album_id, int artist_id, int duration, int playcount, vector<int> &tags, vector<int>& playlist) : id(id), album_id(album_id), artist_id(artist_id), duration(duration), playcount(playcount), tags(tags), playlist(playlist) {}
+    Track(int id, int album_id, int artist_id, int duration, int playcount, vector<int> &tags, vector<int>& playlist, vector<int>& playlist_len) : id(id), album_id(album_id), artist_id(artist_id), duration(duration), playcount(playcount), tags(tags), playlist(playlist), playlist_len(playlist_len) {}
 };
 
 class Metric {
@@ -64,7 +66,7 @@ public:
         int i = 0, j = 0;
         while (i < t1.tags.size() && j < t2.tags.size()) {
             if (t1.tags[i] == t2.tags[j]) {
-                tags_in_common += (popular_tags[t1.tags[i]]);
+                tags_in_common += popular_tags[t1.tags[i]];
                 i++, j++;
             }
             else if (t1.tags[i] > t2.tags[j])
@@ -73,8 +75,10 @@ public:
                 i++;
         }
         while (i < t1.playlist.size() && j < t2.playlist.size()) {
-            if (t1.playlist[i] == t2.playlist[j])
-                playlist_in_common++, i++, j++;
+            if (t1.playlist[i] == t2.playlist[j]) {
+                playlist_in_common += 4.0f/(t1.playlist_len[i] + t2.playlist_len[j]);
+                i++, j++;
+            }
             else if (t1.playlist[i] > t2.playlist[j])
                 j++;
             else
@@ -239,6 +243,7 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
     for (int i = 0; i < N; i++) {
         vector<int> tags;
         vector<int> playlist;
+        vector<int> playlist_len;
 
         input >> id >> album_id >> artist_id >> duration >> playcount >> ntags;
 
@@ -253,10 +258,17 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
         }
         sort(tags.begin(), tags.end());
         sort(playlist.begin(), playlist.end());
+        for (int j = 0; j < nplaylist; j++) {
+            int len = 0;
+            if (tracks_in_playlist.find(playlist[j]) != tracks_in_playlist.end()) {
+                len = tracks_in_playlist[playlist[j]].size();
+            }
+            playlist_len.push_back(len);
+        }
 
-        tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist));
+        tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist, playlist_len));
         if (ttracks.find(id) != ttracks.end()) {
-            target_tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist));
+            target_tracks.push_back(Track(id, album_id, artist_id, duration, playcount, tags, playlist, playlist_len));
             mapping.push_back(i);
         }
 
@@ -323,6 +335,30 @@ void read_popular_tags(map<int, float>& popular_tags) {
     }
 }
 
+void read_tracks_in_playlist(map<int, vector<int>>& tracks_in_playlist) {
+    ifstream input (base_name + "/tracks_in_playlist.txt");
+
+    if (!input) {
+        printf("Error opening tracks_in_playlist.txt\n");
+        exit(0);
+    }
+
+    int N;
+    input >> N;
+
+    while (N--) {
+        int pl_id, n_tr;
+        input >> pl_id >> n_tr;
+        vector<int> tr_ids;
+        while (n_tr--) {
+            int tr_id;
+            input >> tr_id;
+            tr_ids.push_back(tr_id);
+        }
+        tracks_in_playlist[pl_id] = tr_ids;
+    }
+}
+
 int main(int argc, char *argv[]) {
     srand(time(NULL));
 
@@ -335,6 +371,8 @@ int main(int argc, char *argv[]) {
     unique_ptr<Metric> metric(parse_similarity_args(argc, argv));
     base_name = string(argv[8]);
 
+    cout << "Reading tracks in playlist..." << endl;
+    read_tracks_in_playlist(tracks_in_playlist);
     cout << "Reading tracks..." << endl;
     read_tracks(tracks, target_tracks, mapping);
     cout << "Reading popular tracks..." << endl;

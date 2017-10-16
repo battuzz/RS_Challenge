@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import *
 from scipy.sparse.linalg import svds
+import math
 
 from recsys.preprocess import *
 from recsys.utility import *
@@ -227,5 +228,5 @@ if __name__ == '__main__':
     print("Saving popular_tags.txt")
     output_popular_tags(os.path.join(base_name, "popular_tags.txt"))
 
-    #print("Saving tracks_in_playlist.txt")
-    #output_tracks_in_playlist(os.path.join(base_name, "tracks_in_playlist.txt"))
+    print("Saving tracks_in_playlist.txt")
+    output_tracks_in_playlist(os.path.join(base_name, "tracks_in_playlist.txt"))
