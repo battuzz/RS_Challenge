@@ -11,6 +11,7 @@ from recsys.preprocess import *
 from recsys.utility import *
 import sys
 import os
+import math
 
 RANDOM_STATE = 2342
 
@@ -120,7 +121,8 @@ def output_popular_tags(filename):
                 tags[t] = 1
     sorted_tags = sorted([(k, v) for k, v in tags.items()], key=lambda tup: tup[1], reverse=True)
     max_tags = sorted_tags[0][1]
-    sorted_tags = list(map(lambda tup: (tup[0], tup[1]/max_tags), sorted_tags))
+    sorted_tags = list(map(lambda tup: (tup[0], math.log(100000 / tup[1])), sorted_tags))
+    #sorted_tags = list(map(lambda tup: (tup[0], tup[1]/max_tags), sorted_tags))
     tags_popular_file = open(filename,"w")
     tags_popular_file.write(str(len(sorted_tags)) + "\n")
     res = ""
