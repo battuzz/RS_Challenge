@@ -14,7 +14,7 @@
 using namespace std;
 
 
-const int K = 20;
+const int K = 50;
 string base_name;
 
 map<int, float> popular_tracks;
@@ -157,18 +157,35 @@ void compute_similarity(unique_ptr<Metric> &metric, vector<Track>& tracks, vecto
     similarity.assign(tracks.size(), vector<float>());
     indexes.assign(tracks.size(), vector<int>());
 
+    // #pragma omp parallel for
+    // for (int i = 0; i < tracks.size(); i++) {
+    //     auto topn = TopNElements(K);
+    //     for (int j = 0; j < target_tracks.size(); j++) {
+    //         topn.push(metric->dist(tracks[i], target_tracks[j]), mapping[j]);
+    //     }
+    //
+    //     vector<float> elms(topn.elems);
+    //     vector<int> idx(topn.idxs);
+    //
+    //     similarity[i] = elms;
+    //     indexes[i] = idx;
+    //
+    //     if (i % 500 == 0) {
+    //         printf("Track %d of %d for thread %d\n", i, tracks.size()*(1 + omp_get_thread_num())/omp_get_num_threads(), omp_get_thread_num());
+    //     }
+    // }
     #pragma omp parallel for
-    for (int i = 0; i < tracks.size(); i++) {
+    for (int i = 0; i < target_tracks.size(); i++) {
         auto topn = TopNElements(K);
-        for (int j = 0; j < target_tracks.size(); j++) {
-            topn.push(metric->dist(tracks[i], target_tracks[j]), mapping[j]);
+        for (int j = 0; j < tracks.size(); j++) {
+            topn.push(metric->dist(target_tracks[i], tracks[j]), j);
         }
 
         vector<float> elms(topn.elems);
         vector<int> idx(topn.idxs);
 
-        similarity[i] = elms;
-        indexes[i] = idx;
+        similarity[mapping[i]] = elms;
+        indexes[mapping[i]] = idx;
 
         if (i % 500 == 0) {
             printf("Track %d of %d for thread %d\n", i, tracks.size()*(1 + omp_get_thread_num())/omp_get_num_threads(), omp_get_thread_num());
