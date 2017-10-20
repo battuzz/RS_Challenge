@@ -7,12 +7,12 @@ import itertools
 import random
 import time
 
-weights_artist = [0.1, 0.5, 1, 1.5]
-weights_album = [0.1, 0.5, 1, 1.5]
+weights_artist = [1]
+weights_album = [1.5]
 weights_duration = [0,0.1]
 weights_playcount = [0,0.1]
-weights_tags = [0, 0.4, 1]
-weights_playlist = [0.5, 1, 1.5, 2]
+weights_tags = [0, 0.1, 0.4, 0.5]
+weights_playlist = [1.5, 2, 3]
 weights_popularity = [0, 0.1]
 
 combinations = list(itertools.product(weights_artist, weights_album, weights_duration, weights_playcount, weights_tags, weights_playlist, weights_popularity))
@@ -37,14 +37,19 @@ if __name__ == '__main__':
 
 
 		print("~~~~~ COMPUTING PARAMS: {0} ~~~~~".format(param))
+		sys.stdout.flush()
 
 		try:
 			subprocess.call(["python", "ComputeSimilarityInput.py", location, "--split"], stdout=open(os.devnull, 'w'))
 			print("calling compute similarity")
+			sys.stdout.flush()
 			subprocess.call(["./compute_similarity", *map(str,param), location], stdout=open(os.devnull, 'w'))
 			print("scoring")
+			sys.stdout.flush()
 			score = subprocess.check_output(["python", "predict_dot.py", location])
 			print(str(score, encoding='utf-8'))
+			sys.stdout.flush()
 		except Exception as e:
 			print(e)
 			print("ERROR")
+			sys.stdout.flush()
