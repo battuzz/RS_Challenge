@@ -121,8 +121,9 @@ def output_popular_tags(filename):
             else:
                 tags[t] = 1
     sorted_tags = sorted([(k, v) for k, v in tags.items()], key=lambda tup: tup[1], reverse=True)
+    sorted_tags = sorted_tags[:10000]  # Keep the 10000 most popular tags
     max_tags = sorted_tags[0][1]
-    sorted_tags = list(map(lambda tup: (tup[0], math.log(100000 / tup[1])), sorted_tags))
+    sorted_tags = list(map(lambda tup: (tup[0], math.sqrt(100000 / tup[1])), sorted_tags))
     #sorted_tags = list(map(lambda tup: (tup[0], tup[1]/max_tags), sorted_tags))
     tags_popular_file = open(filename,"w")
     tags_popular_file.write(str(len(sorted_tags)) + "\n")
@@ -203,7 +204,7 @@ if __name__ == '__main__':
     if (len(sys.argv) >= 3 and sys.argv[2] == '--split'):
         split = True
         print("Splitting dataset")
-        train, test, target_playlists, target_tracks = train_test_split(train, test_size=0.3, min_playlist_tracks=10)
+        train, test, target_playlists, target_tracks = train_test_split(train, test_size=0.4, min_playlist_tracks=10)
 
     print("Getting pot")
     pot = get_pot(train)

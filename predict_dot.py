@@ -86,9 +86,9 @@ max_pl_length = M.sum(0).A.max()
 for i in range(M.shape[1]):
     n_playlist = M.indptr[i+1] - M.indptr[i]
     if n_playlist >= 1:
-        M.data[M.indptr[i]:M.indptr[i+1]] = np.repeat(math.log((max_pl_length + 20) / (n_playlist)), n_playlist)
+        M.data[M.indptr[i]:M.indptr[i+1]] = np.repeat(math.sqrt((max_pl_length + 20) / (n_playlist)), n_playlist)
     else:
-        M.data[M.indptr[i]:M.indptr[i+1]] = np.repeat(math.log((max_pl_length + 20) / (n_playlist+5)), n_playlist)
+        M.data[M.indptr[i]:M.indptr[i+1]] = np.repeat(math.sqrt((max_pl_length + 20) / (n_playlist+5)), n_playlist)
 
 S = load_similarity(location)
 S2 = S.copy()

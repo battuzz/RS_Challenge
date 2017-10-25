@@ -66,7 +66,8 @@ public:
         int i = 0, j = 0;
         while (i < t1.tags.size() && j < t2.tags.size()) {
             if (t1.tags[i] == t2.tags[j]) {
-                tags_in_common += popular_tags[t1.tags[i]];
+                if (popular_tags.find(t1.tags[i]) != popular_tags.end())
+                    tags_in_common += popular_tags[t1.tags[i]];
                 i++, j++;
             }
             else if (t1.tags[i] > t2.tags[j])
@@ -74,9 +75,13 @@ public:
             else
                 i++;
         }
+        tags_in_common = (tags_in_common) / (t1.tags.size() + t2.tags.size() + 10);
+
         while (i < t1.playlist.size() && j < t2.playlist.size()) {
             if (t1.playlist[i] == t2.playlist[j]) {
                 playlist_in_common += 4.0f/(t1.playlist_len[i] + t2.playlist_len[j]);
+                // playlist_in_common ++;
+                // playlist_in_common += sqrt(100 / tracks_in_playlist[t1.playlist[i]].size() + 5);
                 i++, j++;
             }
             else if (t1.playlist[i] > t2.playlist[j])
@@ -84,25 +89,27 @@ public:
             else
                 i++;
         }
+        // playlist_in_common = (playlist_in_common) / (t1.playlist.size() + t2.playlist.size() + 10);
 
-        float pop_track = 0;
-        if (popular_tracks.find(t1.id) == popular_tracks.end() || popular_tracks.find(t2.id) == popular_tracks.end()) {
-            pop_track = 0;
-        } else {
-            pop_track = popular_tracks[t1.id] + popular_tracks[t2.id];
-        }
+        float duration_val = (t1.duration == -1 || t2.duration == -1) ? 0 : exp(-abs(t1.duration - t2.duration)/100000.0);
+        float playcount_val = (t1.playcount == -1 || t2.playcount == -1) ? 0 : exp(-abs(t1.playcount - t2.playcount)/100.0);
+        float same_artist = ((t1.artist_id == -1 || t2.artist_id == -1) ? 0 : t1.artist_id == t2.artist_id);
+        float same_album = ((t1.album_id == -1 || t2.album_id == -1) ? 0 : t1.album_id == t2.album_id);
 
-
-
-        return
-            ( w_artist * ((t1.artist_id == -1 || t2.artist_id == -1) ? 0 : t1.artist_id == t2.artist_id)
-            + w_album * ((t1.album_id == -1 || t2.album_id == -1) ? 0 : t1.album_id == t2.album_id)
-            + w_duration * exp(-abs(t1.duration - t2.duration)/100000.0)
-            + w_playcount * exp(-abs(t1.playcount - t2.playcount)/100.0)
+        float ret =
+            ( w_artist * same_artist
+            + w_album * same_album
+            + w_duration * duration_val
+            + w_playcount * playcount_val
             + w_tags * (tags_in_common)
             + w_playlist * (playlist_in_common)
-            + w_popularity_track * pop_track
         );
+        // if (playlist_in_common > 0)
+        //     cout << "[DEBUG] duration=" << duration_val << " playcount=" << playcount_val << " tags=" << tags_in_common << " playlist=" << playlist_in_common << " total=" << ret << endl;
+        // float info = (same_artist + same_album + (duration_val > 0) + (playcount_val>0) + t1.tags.size()/5.0 + t2.tags.size()/5.0 + 2) / 8.0;
+        // cout << info << endl;
+        //return ret * info;
+        return ret
         //    / (w_artist + w_album + w_duration + w_playcount + w_tags + 1e06);
     }
 };

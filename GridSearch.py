@@ -7,13 +7,13 @@ import itertools
 import random
 import time
 
-weights_artist = [1]
-weights_album = [1.5]
-weights_duration = [0,0.1]
-weights_playcount = [0,0.1]
-weights_tags = [0, 0.1, 0.4, 0.5]
-weights_playlist = [1.5, 2, 3]
-weights_popularity = [0, 0.1]
+weights_artist = [0.5, 1]
+weights_album = [0.5, 1.5]
+weights_duration = [0,0.01]
+weights_playcount = [0,0.01]
+weights_tags = [0, 0.1]
+weights_playlist = [2, 3]
+weights_popularity = [0]
 
 combinations = list(itertools.product(weights_artist, weights_album, weights_duration, weights_playcount, weights_tags, weights_playlist, weights_popularity))
 random.shuffle(combinations)
