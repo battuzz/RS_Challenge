@@ -111,6 +111,9 @@ void read_similarity_matrix(vector<vector<float>> &similarity, vector<vector<int
         indexes[r].push_back(c);
         similarity[r].push_back(0);
     }
+
+    for (int i = 0; i < SIZE; i++)
+        sort(indexes[i].begin(), indexes[i].end());
 }
 
 
