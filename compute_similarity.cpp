@@ -9,17 +9,19 @@
 #include <set>
 #include <memory>
 #include <cmath>
+#include <sstream>
 #include "omp.h"
 
 using namespace std;
 
 
-const int K = 50;
+const int K = 100;
+int NUSER, NITEMS;
 string base_name;
 
 map<int, float> popular_tracks;
 map<int, float> popular_tags;
-map<int, vector<int>> tracks_in_playlist;
+vector<vector<int>> tracks_in_playlist;
 
 float gen_rand() {
     return ((float) rand() / (RAND_MAX));
@@ -79,7 +81,7 @@ public:
 
         while (i < t1.playlist.size() && j < t2.playlist.size()) {
             if (t1.playlist[i] == t2.playlist[j]) {
-                playlist_in_common += 4.0f/(t1.playlist_len[i] + t2.playlist_len[j]);
+                playlist_in_common += 4.0f/(t1.playlist_len[i] + t2.playlist_len[j] + 0.5);
                 // playlist_in_common ++;
                 // playlist_in_common += sqrt(100 / tracks_in_playlist[t1.playlist[i]].size() + 5);
                 i++, j++;
@@ -109,7 +111,7 @@ public:
         // float info = (same_artist + same_album + (duration_val > 0) + (playcount_val>0) + t1.tags.size()/5.0 + t2.tags.size()/5.0 + 2) / 8.0;
         // cout << info << endl;
         //return ret * info;
-        return ret
+        return ret;
         //    / (w_artist + w_album + w_duration + w_playcount + w_tags + 1e06);
     }
 };
@@ -126,7 +128,10 @@ public:
     int size;
     vector<float> elems;
     vector<int> idxs;
-    TopNElements(int size) : size(size), elems(size), idxs(size) {}
+    TopNElements(int size) : size(size), elems(size), idxs(size) {
+        idxs.assign(size, 0);
+        elems.assign(size, -1);
+    }
     void push(float e, int index) {
         if (e <= elems[size-1])
             return;
@@ -138,6 +143,20 @@ public:
         }
         elems[i] = e;
         idxs[i] = index;
+    }
+
+    void sorted(vector<float> &elements, vector<int> &indexes) {
+        vector<pair<int, float>> V;
+        for (int i = 0; i < size; i++)
+            V.push_back({idxs[i], elems[i]});
+        sort(V.begin(), V.end());
+
+        elements.resize(size);
+        indexes.resize(size);
+        for (int i = 0; i < size; i++){
+            elements[i] = V[i].second;
+            indexes[i] = V[i].first;
+        }
     }
 };
 
@@ -164,35 +183,23 @@ void compute_similarity(unique_ptr<Metric> &metric, vector<Track>& tracks, vecto
     similarity.assign(tracks.size(), vector<float>());
     indexes.assign(tracks.size(), vector<int>());
 
-    // #pragma omp parallel for
-    // for (int i = 0; i < tracks.size(); i++) {
-    //     auto topn = TopNElements(K);
-    //     for (int j = 0; j < target_tracks.size(); j++) {
-    //         topn.push(metric->dist(tracks[i], target_tracks[j]), mapping[j]);
-    //     }
-    //
-    //     vector<float> elms(topn.elems);
-    //     vector<int> idx(topn.idxs);
-    //
-    //     similarity[i] = elms;
-    //     indexes[i] = idx;
-    //
-    //     if (i % 500 == 0) {
-    //         printf("Track %d of %d for thread %d\n", i, tracks.size()*(1 + omp_get_thread_num())/omp_get_num_threads(), omp_get_thread_num());
-    //     }
-    // }
+
     #pragma omp parallel for
-    for (int i = 0; i < target_tracks.size(); i++) {
+    for (int i = 0; i < tracks.size(); i++) {
         auto topn = TopNElements(K);
         for (int j = 0; j < tracks.size(); j++) {
-            topn.push(metric->dist(target_tracks[i], tracks[j]), j);
+            if (i != j)
+                topn.push(metric->dist(tracks[i], tracks[j]), j);
         }
 
-        vector<float> elms(topn.elems);
-        vector<int> idx(topn.idxs);
+        vector<float> elms;
+        vector<int> idx;
+        topn.sorted(elms, idx);
 
-        similarity[mapping[i]] = elms;
-        indexes[mapping[i]] = idx;
+        similarity[i] = elms;
+        indexes[i] = idx;
+        // similarity[mapping[i]] = elms;
+        // indexes[mapping[i]] = idx;
 
         if (i % 500 == 0) {
             printf("Track %d of %d for thread %d\n", i, tracks.size()*(1 + omp_get_thread_num())/omp_get_num_threads(), omp_get_thread_num());
@@ -283,10 +290,10 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
         sort(tags.begin(), tags.end());
         sort(playlist.begin(), playlist.end());
         for (int j = 0; j < nplaylist; j++) {
-            int len = 0;
-            if (tracks_in_playlist.find(playlist[j]) != tracks_in_playlist.end()) {
-                len = tracks_in_playlist[playlist[j]].size();
-            }
+            int len = tracks_in_playlist[playlist[j]].size();
+            // if (tracks_in_playlist.find(playlist[j]) != tracks_in_playlist.end()) {
+            //     len = tracks_in_playlist[playlist[j]].size();
+            // }
             playlist_len.push_back(len);
         }
 
@@ -300,6 +307,8 @@ void read_tracks(vector<Track>& tracks, vector<Track>& target_tracks, vector<int
 }
 
 void print_similarity(ofstream& output, vector<vector<float>>& similarity, vector<vector<int>>& indexes) {
+    output << NITEMS << " " << NITEMS << endl;
+
     // Print rows
     for (int i = 0; i < similarity.size(); i++)
         for (int j = 0; j < similarity[i].size(); j++)
@@ -359,27 +368,106 @@ void read_popular_tags(map<int, float>& popular_tags) {
     }
 }
 
-void read_tracks_in_playlist(map<int, vector<int>>& tracks_in_playlist) {
+void read_tracks_in_playlist(vector<vector<int>>& tracks_in_playlist) {
     ifstream input (base_name + "/tracks_in_playlist.txt");
 
     if (!input) {
         printf("Error opening tracks_in_playlist.txt\n");
         exit(0);
     }
+    string sizes, rows, cols;
 
-    int N;
-    input >> N;
+    getline(input, sizes);
+    getline(input, rows);
+    getline(input, cols);
 
-    while (N--) {
-        int pl_id, n_tr;
-        input >> pl_id >> n_tr;
-        vector<int> tr_ids;
-        while (n_tr--) {
-            int tr_id;
-            input >> tr_id;
-            tr_ids.push_back(tr_id);
+    stringstream sizestream(sizes);
+    stringstream rstream(rows);
+    stringstream cstream(cols);
+
+    sizestream >> NUSER >> NITEMS;
+    tracks_in_playlist.resize(NUSER);
+
+    int r,c;
+    while (rstream >> r) {
+        cstream >> c;
+        tracks_in_playlist[r].push_back(c);
+    }
+
+    for (int i = 0; i < NUSER; i++)
+        sort(tracks_in_playlist[i].begin(), tracks_in_playlist[i].end());
+}
+
+
+
+
+
+int sample_negative(int user, map<int, vector<int>>& urm) {
+    int j = rand() % (100000);
+    while (find(urm[user].begin(), urm[user].end(), j) != urm[user].end())
+        j = rand() % (100000);
+
+    return j;
+}
+
+void sample(int& u, int& i, int& j, map<int, vector<int>>& urm) {
+    u = rand()%(urm.size());
+    i = urm[u][rand() % (urm[u].size())];
+    j = sample_negative(u, urm);
+}
+
+float predict_xuij(int u, int i, int j, map<int,vector<int>>& urm, vector<vector<float>> &S, vector<vector<int>> indexes) {
+    int psi = 0, psj = 0;
+    float count = 0.0;
+    for (int k = 0; k < urm[u].size(); k++) {
+        // Advance psi & psj
+        while (psi < indexes[i].size() && urm[u][k] < indexes[i][psi])
+            psi++;
+        while (psj < indexes[j].size() && urm[u][k] < indexes[j][psi])
+            psj++;
+
+        if (psi < indexes[i].size() && urm[u][k] == indexes[i][psi])
+            count += S[i][psi];
+        if (psj < indexes[j].size() && urm[u][k] == indexes[j][psj])
+            count -= S[j][psj];
+    }
+
+    return count;
+}
+
+void BPRSLIM(map<int, vector<int>>& urm, vector<vector<float>> &S, vector<vector<int>> &indexes, int iterations=1, float alpha = 0.1, float reg_positive = 0.1, float reg_negative=0.1) {
+    for (int it = 0; it < iterations; it++) {
+        for (int count = 0; count < 100; count++) {
+            int u,i,j;
+            sample(u, i, j, urm);
+            cout << "sampled u=" << u << ", i=" << i << ", j=" << j << endl;
+
+            float x_pred = predict_xuij(u, i, j, urm, S, indexes);
+            float z = exp(-x_pred) * (1 + exp(-x_pred));
+            cout << "x_pred=" << x_pred << ", z=" << z << endl;
+
+            int psi = 0, psj = 0;
+            for (int l = 0; l < urm[u].size(); l++) {
+                int idx = urm[u][l];
+                while (psi < indexes[i].size() && idx < indexes[i][psi])
+                    psi++;
+                while (psj < indexes[j].size() && idx < indexes[j][psj])
+                    psj++;
+
+                if (idx != i && idx == indexes[i][psi]) {
+                    cout << "Updated S[" << i << "][" << idx << "] " << S[i][psi] << " --> ";
+                    S[i][psi] += alpha*(z - reg_positive*S[i][psi]);
+                    cout << S[i][psi] << endl;
+
+                }
+
+                if (idx != j && idx == indexes[j][psj]){
+                    cout << "Updated S[" << j << "][" << idx << "] " << S[j][psj] << " --> ";
+                    S[j][psj] += alpha*(-z - reg_negative*S[j][psj]);
+                    cout << S[j][psj] << endl;
+                }
+            }
         }
-        tracks_in_playlist[pl_id] = tr_ids;
     }
 }
 
@@ -412,10 +500,11 @@ int main(int argc, char *argv[]) {
     cout << "Creating similarity matrix..." << endl;
     compute_similarity(metric, tracks, target_tracks, mapping, similarity, indexes, K);
 
+    //BPRSLIM(tracks_in_playlist, similarity, indexes);
+
     ofstream output;
     output.open (base_name + "/similarity.txt");
 
-    metric->print_weights(output);
     cout << "Printing similarity matrix..." << endl;
     print_similarity(output, similarity, indexes);
 }

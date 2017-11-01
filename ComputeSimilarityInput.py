@@ -22,18 +22,28 @@ np.random.seed(RANDOM_STATE)
 
 print("Loading data")
 train = pd.read_csv('data/train_final.csv', delimiter='\t')
-#playlists = pd.read_csv('data/playlists_final.csv', delimiter='\t')
+playlists = pd.read_csv('data/playlists_final.csv', delimiter='\t')
 target_playlists = pd.read_csv('data/target_playlists.csv', delimiter='\t')
 target_tracks = pd.read_csv('data/target_tracks.csv', delimiter = '\t')
 tracks = pd.read_csv('data/tracks_final.csv', delimiter='\t')
 
 tracks.index = tracks['track_id']
 
+def build_id_to_num_map(df, column):
+    a = pd.Series(np.arange(len(df)))
+    a.index = df[column]
+    return a
+
+def build_num_to_id_map(df, column):
+    a = pd.Series(df[column])
+    a.index = np.arange(len(df))
+    return a
 
 def get_pot(train):
+    pl2num_map = build_id_to_num_map(playlists, 'playlist_id')
     pot = pd.DataFrame(train['track_id'].drop_duplicates())
     pot.index = train['track_id'].unique()
-    pot['playlist_ids'] = train.groupby('track_id').apply(lambda x : x['playlist_id'].values)
+    pot['playlist_ids'] = train.groupby('track_id').apply(lambda x : [pl2num_map[k] for k in x['playlist_id'].values])
 
     # #Take care of shitty track
     #
@@ -164,6 +174,32 @@ def output_target_tracks(filename):
     target_tracks_file.close()
 
 
+
+def output_tracks_in_playlist(filename):
+    tr_map = build_id_to_num_map(tracks, 'track_id')
+    pl_map = build_id_to_num_map(playlists, 'playlist_id')
+
+    train_new = pd.DataFrame()
+    train_new['track_id'] = train['track_id'].apply(lambda x : tr_map[x])
+    train_new['playlist_id'] = train['playlist_id'].apply(lambda x : pl_map[x])
+
+    rows = train_new['playlist_id'].values
+    cols = train_new['track_id'].values
+    values = np.ones(len(train_new))
+
+    urm = coo_matrix((values, (rows, cols)))
+
+    with open(filename,"w") as f:
+        f.write('%d %d\n' % urm.shape)
+        f.write(' '.join(map(str, urm.row)) + '\n')
+        f.write(' '.join(map(str, urm.col)) + '\n')
+
+
+
+
+
+
+
 def output_train_test(filename, df):
     target_tracks_file = open(filename,"w")
     target_tracks_file.write(str(len(df)) + "\n")
@@ -176,23 +212,6 @@ def output_train_test(filename, df):
         res += str(row["playlist_id"]) + " " + str(row["track_id"]) + "\n"
     target_tracks_file.write(res)
     target_tracks_file.close()
-
-def output_tracks_in_playlist(filename):
-    tracks_in_playlist = get_playlist_track_list2(train)
-    tracks_in_playlist_file = open(filename,"w")
-    tracks_in_playlist_file.write(str(len(tracks_in_playlist)) + "\n")
-    res = ""
-    i = 0
-    for _,row in tracks_in_playlist.iterrows():
-        i += 1
-        if i % 1000 == 0:
-            print(str(i) + " of " + str(len(tracks_in_playlist)))
-        res += str(row["playlist_id"]) + " " + str(len(row["track_ids"])) + " "
-        for tr_id in row["track_ids"]:
-            res += str(tr_id) + " "
-        res += "\n"
-    tracks_in_playlist_file.write(res)
-    tracks_in_playlist_file.close()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
