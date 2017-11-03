@@ -148,6 +148,10 @@ def output_popular_tags(filename):
     tags_popular_file.close()
 
 def output_target_playlists(filename):
+    global target_playlists
+    pl_map = build_id_to_num_map(playlists, 'playlist_id')
+
+
     target_playlists_file = open(filename,"w")
     target_playlists_file.write(str(len(target_playlists)) + "\n")
     res = ""
@@ -156,11 +160,14 @@ def output_target_playlists(filename):
         i += 1
         if i % 1000 == 0:
             print(str(i) + " of " + str(len(target_playlists)))
-        res += str(int(row["playlist_id"])) + "\n"
+        res += str(int(pl_map[row["playlist_id"]])) + "\n"
     target_playlists_file.write(res)
     target_playlists_file.close()
 
 def output_target_tracks(filename):
+    global target_tracks
+    tr_map = build_id_to_num_map(tracks, 'track_id')
+
     target_tracks_file = open(filename,"w")
     target_tracks_file.write(str(len(target_tracks)) + "\n")
     res = ""
@@ -169,7 +176,7 @@ def output_target_tracks(filename):
         i += 1
         if i % 1000 == 0:
             print(str(i) + " of " + str(len(target_tracks)))
-        res += str(int(row["track_id"])) + "\n"
+        res += str(int(tr_map[row["track_id"]])) + "\n"
     target_tracks_file.write(res)
     target_tracks_file.close()
 
@@ -195,7 +202,24 @@ def output_tracks_in_playlist(filename):
         f.write(' '.join(map(str, urm.col)) + '\n')
 
 
+def output_test_urm(test, filename):
+    tr_map = build_id_to_num_map(tracks, 'track_id')
+    pl_map = build_id_to_num_map(playlists, 'playlist_id')
 
+    test_new = pd.DataFrame()
+    test_new['track_id'] = test['track_id'].apply(lambda x : tr_map[x])
+    test_new['playlist_id'] = test['playlist_id'].apply(lambda x : pl_map[x])
+
+    rows = test_new['playlist_id'].values
+    cols = test_new['track_id'].values
+    values = np.ones(len(test_new))
+
+    urm = coo_matrix((values, (rows, cols)))
+
+    with open(filename,"w") as f:
+        f.write('%d %d\n' % urm.shape)
+        f.write(' '.join(map(str, urm.row)) + '\n')
+        f.write(' '.join(map(str, urm.col)) + '\n')
 
 
 
@@ -231,7 +255,7 @@ if __name__ == '__main__':
     output_tracks(os.path.join(base_name, "tracks.txt"), pot)
 
     print("Saving target_playlists.txt, target_tracks.txt")#, train.txt")
-    #output_target_playlists(os.path.join(base_name, "target_playlists.txt"))
+    output_target_playlists(os.path.join(base_name, "target_playlists.txt"))
     target_playlists.to_csv(os.path.join(base_name,  "target_playlists.csv"), index=False)
     output_target_tracks(os.path.join(base_name, "target_tracks.txt"))
     target_tracks.to_csv(os.path.join(base_name, "target_tracks.csv"), index=False)
@@ -241,6 +265,7 @@ if __name__ == '__main__':
         print("Saving test.txt")
         #output_train_test(os.path.join(base_name, "test.txt"), test)
         test.to_csv(os.path.join(base_name, "test.csv"), index=False)
+        output_test_urm(test, os.path.join(base_name,'test.txt'))
 
     print("Saving popular_tracks.txt")
     output_popular_tracks(os.path.join(base_name, "popular_tracks.txt"))
