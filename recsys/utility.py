@@ -38,8 +38,11 @@ def evaluate(test, recommendations, should_transform_test=True):
     return mean_ap / len(recommendations)
 
 
-def train_test_split(train, test_size=0.3, min_playlist_tracks=7):
-    playlists = train.groupby('playlist_id').count()
+def train_test_split(train, test_size=0.3, min_playlist_tracks=7, target_playlists=None):
+    if target_playlists is None:
+        playlists = train.groupby('playlist_id').count()
+    else:
+        playlists = train[train.playlist_id.isin(target_playlists.playlist_id)].groupby('playlist_id').count()
 
     # Only playlists with at least "min_playlist_tracks" tracks are considered.
     # If "min_playlists_tracks" = 7, then 28311 out of 45649 playlists in "train" are considered.

@@ -247,7 +247,7 @@ if __name__ == '__main__':
     if (len(sys.argv) >= 3 and sys.argv[2] == '--split'):
         split = True
         print("Splitting dataset")
-        train, test, target_playlists, target_tracks = train_test_split(train, test_size=0.4, min_playlist_tracks=10)
+        train, test, target_playlists, target_tracks = train_test_split(train, test_size=1.0, min_playlist_tracks=13, target_playlists=target_playlists)
 
     print("Getting pot")
     pot = get_pot(train)
