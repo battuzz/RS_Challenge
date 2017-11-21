@@ -124,6 +124,11 @@ void read_similarity_matrix(vector<FloatMatrix>& similarity_vector, vector<IntMa
     string weights, rows, cols, data, sizes;
     ifstream input (base_name + "/similarity_" + to_string(num_sim) + ".txt");
 
+    if (!input) {
+        cout << "Can't read similarity " << to_string(num_sim) << endl;
+        exit(0);
+    }
+
     getline(input, sizes);
     getline(input, rows);
     getline(input, cols);
@@ -232,9 +237,9 @@ float predict_xuij(int u, int i, int j, FloatMatrix& urm, IntMatrix& urm_indexes
             psj++;
 
         if (psi < indexes[i].size() && urm_indexes[u][k] == indexes[i][psi])
-            count += urm[u][k] * S[i][psi];// / row_sums[psi];
+            count += urm[u][k] * S[i][psi] / row_sums[indexes[i][psi]];
         if (psj < indexes[j].size() && urm_indexes[u][k] == indexes[j][psj])
-            count -= urm[u][k] * S[j][psj];// / row_sums[psj];
+            count -= urm[u][k] * S[j][psj] / row_sums[indexes[j][psj]];
     }
 
     return count;
@@ -409,7 +414,6 @@ int main(int argc, char *argv[]) {
     finish = clock();
     double elapsedTime = double(finish -init)/ CLOCKS_PER_SEC;
     cout << "iterations: " << std::fixed << std::setprecision(3) << 1.0 * updates / elapsedTime << endl;
-
 
     ofstream output;
     output.open (base_name + "/playlist_params.txt");
