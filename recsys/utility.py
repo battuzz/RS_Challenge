@@ -32,7 +32,8 @@ def evaluate(test, recommendations, should_transform_test=True):
             if t in test_df.loc[pl_id]['track_ids']:
                 correct += 1
                 ap += correct / (it+1)
-        ap /= len(tracks)
+        if len(tracks) > 0:
+            ap /= len(tracks)
         mean_ap += ap
 
     return mean_ap / len(recommendations)
