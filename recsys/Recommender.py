@@ -35,27 +35,29 @@ class Recommender(object):
         return [self]
 
     def evaluate(self):
-        if not hasattr(self, 'predictions'):
-            self.predictions = csr_matrix((0, self.dataset.urm.shape[1]))
+        test_good = preprocess.get_playlist_track_list2(self.dataset.test)
+        test_good.index = test_good.playlist_id.apply(lambda pl_id: self.dataset.playlist_to_num[pl_id])
 
-            row_group = 1000
-            row_start = 0
-            while row_start < len(self.dataset.target_playlists):
-                # We'll do dot products for all playlists in "target_playlists" from "row_start" to "row_end"
-                row_end = row_start + row_group if row_start + row_group <= len(self.dataset.target_playlists) else len(self.dataset.target_playlists)
+        self.predictions = csr_matrix((0, self.dataset.urm.shape[1]))
 
-                simil_urm = self.recommend_group(row_start, row_end)
+        row_group = 1000
+        row_start = 0
+        while row_start < len(self.dataset.target_playlists):
+            # We'll do dot products for all playlists in "target_playlists" from "row_start" to "row_end"
+            row_end = row_start + row_group if row_start + row_group <= len(self.dataset.target_playlists) else len(self.dataset.target_playlists)
 
-                self.predictions = vstack([self.predictions, simil_urm], 'csr')
+            simil_urm = self.recommend_group(row_start, row_end)
 
-                predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
-                current_map = utils.evaluate(self.dataset.test, predictions_df, should_transform_test=False)
-                print("{}-{} --> {}".format(row_start, row_end, current_map))
+            self.predictions = vstack([self.predictions, simil_urm], 'csr')
 
-                row_start = row_end
+            predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
+            current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
+            print("{}-{} --> {}".format(row_start, row_end, current_map))
 
-        predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
-        current_map = utils.evaluate(self.dataset.test, predictions_df, should_transform_test=False)
+            row_start = row_end
+
+        # predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
+        # current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
         return current_map
 
     def __repr__(self):
@@ -79,7 +81,7 @@ class SimilarityRecommender(Recommender):
             pl_tracks = list(set(self.dataset.playlist_tracks.loc[pl_id]['track_ids']))
 
             mask = np.ones(row.shape, dtype=bool)
-            mask[self.dataset.target_tracks.values]=False
+            mask[self.dataset.target_tracks.track_id.values] = False
             row[mask] = 0
             row[pl_tracks] = 0
 
@@ -93,8 +95,6 @@ class SimilarityRecommender(Recommender):
 
             predictions[i] = new_row
             predictions_to_save[i] = new_row_to_save
-
-        self.predictions = scipy.sparse.vstack([self.predictions, predictions_to_save], 'csr')
 
         return csr_matrix(predictions)
 
@@ -136,8 +136,6 @@ class EnsembleRecommender(Recommender):
             best_indexes = row.argsort()[::-1][:keep_best]
             predictions[i] = row[best_indexes]
             predictions_to_save[i] = row[best_indexes[:5]]
-
-        self.predictions = scipy.sparse.vstack([self.predictions, predictions_to_save], 'csr')
 
         return predictions
 

@@ -6,7 +6,7 @@ import scipy as sc
 import pickle
 import os
 from . import preprocess
-from scipy.sparse import vstack, csr_matrix, lil_matrix
+from scipy.sparse import vstack, csr_matrix, csc_matrix, lil_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 from . import Builders as builders
@@ -22,67 +22,29 @@ class Dataset(object):
 
         return Dataset(train, tracks, playlists, target_tracks, target_playlists)
 
-    def __init__(self, train, tracks, playlists, target_tracks, target_playlists, urm_builder = None):
+    def __init__(self, train, tracks, playlists, target_tracks, target_playlists):
         self.train = train
         self.tracks = tracks
         self.playlists = playlists
         self.target_tracks = target_tracks
         self.target_playlists = target_playlists
 
-        self.urm_builder = urm_builder
-        if self.urm_builder is None:
-            self.urm_builder = builders.URMBuilder(norm="no")
-
-        self.urm = self.urm_builder.build(self)
-
-    def preprocess_data(self):
-        # Convert track id
-        self.tracks['track_id_tmp'] = self.tracks['track_id']
-        self.tracks['track_id'] = self.tracks.index
-
-        # Convert playlist id
-        self.playlists['playlist_id_tmp'] = self.playlists['playlist_id']
-        self.playlists['playlist_id'] = self.playlists.index
-
-        #Convert train id
-        self.train['playlist_id_tmp'] = self.train['playlist_id']
-        self.train['track_id_tmp'] = self.train['track_id']
-
+    def _normalize_train_dataset(self):
         self.track_to_num = pd.Series(self.tracks.index)
         self.track_to_num.index = self.tracks['track_id_tmp']
         self.playlist_to_num = pd.Series(self.playlists.index)
         self.playlist_to_num.index = self.playlists['playlist_id_tmp']
 
-        self.num_to_tracks = pd.Series(self.tracks['track_id_tmp'])
-
         self.train['track_id'] = self.train['track_id'].apply(lambda x : self.track_to_num[x])
         self.train['playlist_id'] = self.train['playlist_id'].apply(lambda x : self.playlist_to_num[x])
 
-        # Parse tracks tags and playlist title
+    def _normalize_tracks(self):
+        # Convert track id
+        self.tracks['track_id_tmp'] = self.tracks['track_id']
+        self.tracks['track_id'] = self.tracks.index
+
+        self.num_to_tracks = pd.Series(self.tracks['track_id_tmp'])
         self.tracks.tags = self.tracks.tags.apply(lambda s: np.array(eval(s), dtype=int))
-        self.playlists.title = self.playlists.title.apply(lambda s: np.array(eval(s), dtype=int))
-
-        # Convert target playlist id
-        self.target_playlists['playlist_id_tmp'] = self.target_playlists['playlist_id']
-        self.target_playlists['playlist_id'] = self.target_playlists['playlist_id'].apply(lambda x : self.playlist_to_num[x])
-        self.target_playlists = self.target_playlists.astype(int)
-
-        # Convert target tracks id
-        self.target_tracks['track_id_tmp'] = self.target_tracks['track_id']
-        self.target_tracks['track_id'] = self.target_tracks['track_id'].apply(lambda x : self.track_to_num[x])
-        self.target_tracks = self.target_tracks.astype(int)
-
-        # Create a dataframe that maps a playlist to the set of its tracks
-        self.playlist_tracks = pd.DataFrame(self.train['playlist_id'].drop_duplicates())
-        self.playlist_tracks.index = self.train['playlist_id'].unique()
-        self.playlist_tracks['track_ids'] = self.train.groupby('playlist_id').apply(lambda x : x['track_id'].values)
-        self.playlist_tracks = self.playlist_tracks.sort_values('playlist_id')
-
-        # Create a dataframe that maps a track to the set of the playlists it appears into
-        self.track_playlists = pd.DataFrame(self.train['track_id'].drop_duplicates())
-        self.track_playlists.index = self.train['track_id'].unique()
-        self.track_playlists['playlist_ids'] = self.train.groupby('track_id').apply(lambda x : x['playlist_id'].values)
-        self.track_playlists = self.track_playlists.sort_values('track_id')
 
         # Substitute each bad album (i.e. an illformed album such as -1, None, etc) with the 0 album
         def transform_album_1(alb):
@@ -108,19 +70,26 @@ class Dataset(object):
         # self.tracks.album = self.tracks.album.apply(lambda alb: transform_album_2(alb))
         self.tracks.album = self.tracks.album.apply(AlbumTransformer(last_album+1))
 
+    def _normalize_playlists(self):
+        self.playlists['playlist_id_tmp'] = self.playlists['playlist_id']
+        self.playlists['playlist_id'] = self.playlists.index
 
-    def split_holdout(self, test_size=1, min_playlist_tracks=13):
-        self.train_orig = self.train.copy()
-        self.target_tracks_orig = self.target_tracks.copy()
-        self.target_playlists_orig = self.target_playlists.copy()
-        self.train, self.test, self.target_playlists, self.target_tracks = train_test_split(self.train, test_size, min_playlist_tracks, target_playlists=self.target_playlists_orig)
+        self.playlist_to_num = pd.Series(self.playlists.index)
+        self.playlist_to_num.index = self.playlists['playlist_id_tmp']
 
+    def _normalize_target_playlists(self):
+        # Convert target playlist id
+        self.target_playlists['playlist_id_tmp'] = self.target_playlists['playlist_id']
+        self.target_playlists['playlist_id'] = self.target_playlists['playlist_id'].apply(lambda x : self.playlist_to_num[x])
         self.target_playlists = self.target_playlists.astype(int)
+
+    def _normalize_target_tracks(self):
+        # Convert target tracks id
+        self.target_tracks['track_id_tmp'] = self.target_tracks['track_id']
+        self.target_tracks['track_id'] = self.target_tracks['track_id'].apply(lambda x : self.track_to_num[x])
         self.target_tracks = self.target_tracks.astype(int)
-        self.train = self.train.astype(int)
-        self.test = self.test.astype(int)
 
-
+    def _compute_mappings(self):
         # Create a dataframe that maps a playlist to the set of its tracks
         self.playlist_tracks = pd.DataFrame(self.train['playlist_id'].drop_duplicates())
         self.playlist_tracks.index = self.train['playlist_id'].unique()
@@ -133,8 +102,31 @@ class Dataset(object):
         self.track_playlists['playlist_ids'] = self.train.groupby('track_id').apply(lambda x : x['playlist_id'].values)
         self.track_playlists = self.track_playlists.sort_values('track_id')
 
-        # Rebuild urm
-        self.urm = self.urm_builder.build(self)
+
+    def split_holdout(self, test_size=1, min_playlist_tracks=13):
+        self.train_orig = self.train.copy()
+        self.target_tracks_orig = self.target_tracks.copy()
+        self.target_playlists_orig = self.target_playlists.copy()
+        self.train, self.test, self.target_playlists, self.target_tracks = train_test_split(self.train, test_size, min_playlist_tracks, target_playlists=self.target_playlists_orig)
+
+        self.target_playlists = self.target_playlists.astype(int)
+        self.target_tracks = self.target_tracks.astype(int)
+        self.train = self.train.astype(int)
+        self.test = self.test.astype(int)
+
+    def normalize(self):
+        self._normalize_tracks()
+        self._normalize_playlists()
+        self._normalize_train_dataset()
+        self._normalize_target_tracks()
+        self._normalize_target_playlists()
+        self._compute_mappings()
+
+
+    def build_urm(self, urm_builder=builders.URMBuilder(norm="no")):
+        self.urm = urm_builder.build(self)
+        self.urm = csr_matrix(self.urm)
+
 
 def evaluate(test, recommendations, should_transform_test=True):
     """
