@@ -52,7 +52,7 @@ class Recommender(object):
 
             predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
             current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
-            print("{}-{} --> {}".format(row_start, row_end, current_map))
+            print("{}: {}-{} --> {}".format(self, row_start, row_end, current_map))
 
             row_start = row_end
 
@@ -99,37 +99,39 @@ class SimilarityRecommender(Recommender):
         return csr_matrix(predictions)
 
 class EnsembleRecommender(Recommender):
-    def __init__(self, recommenders, name = None, reducer = None):
+    def __init__(self, name = None, recommenders=[], reducer = None):
         super().__init__(name=name)
         self.recommenders = recommenders
+        self.reducer = reducer
 
     def fit(self, dataset):
         super().fit(dataset)
 
-        for recommender in self.recommenders:
-            recommender.fit(dataset)
 
     def recommend_group(self, row_start, row_end, keep_best=5, compute_MAP=False):
-        pl_group = target_playlists[row_start:row_end]
+        pl_group = self.dataset.target_playlists[row_start:row_end]
 
         predictions = []
         for predictor in self.recommenders:
             pred = predictor.recommend_group(row_start, row_end, keep_best=self.dataset.urm.shape[1], compute_MAP=compute_MAP)
 
-            if compute_MAP:
-                print("{} : {}".format(predictor, predictor.evaluate()))
+            # if compute_MAP:
+            #     print("{} : {}".format(predictor, predictor.evaluate()))
             predictions.append(pred)
 
-        predictions = reducer(predictions)
+        print(len(predictions))
+        predictions = self.reducer(predictions)
+        print(predictions.shape)
 
         # keep only keep_best elements
         predictions_to_save = predictions.copy()
         for i,pl_id in enumerate(pl_group.playlist_id):
             row = predictions[i].copy()
+            print(row)
             pl_tracks = list(set(self.dataset.playlist_tracks.loc[pl_id]['track_ids']))
 
-            mask = np.ones(row.shape, dtype=bool)
-            mask[self.dataset.target_tracks.values]=False
+            mask = np.ones(row.shape[1], dtype=bool)
+            mask[self.dataset.target_tracks.track_id.values]=False
             row[mask] = 0
             row[pl_tracks] = 0
 
