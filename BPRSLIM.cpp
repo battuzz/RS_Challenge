@@ -18,8 +18,8 @@ using namespace std;
 
 const int SAMPLES_PER_EPOCH = 10000;
 
-bool adagrad = false;
-bool top100parallel = false;
+bool adagrad = true;
+bool top100parallel = true;
 bool DEBUG = false;
 
 typedef vector<vector<float>> FloatMatrix;
@@ -417,6 +417,8 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
     vector<float> adagrad_weights;
     adagrad_weights.assign(NITEMS, 0.0);
 
+    int CUTOFF = 100;
+
     for (int it = 0; it < iterations; it++) {
         cout << "Iteration: " << it << endl;
         vector<Sample> samples;
@@ -433,15 +435,15 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
             u = samples[count].u;
             i = samples[count].i;
             j = samples[count].j;
-            // sample(u, i, j, urm);
+
 
             float x_pred;
             if (top100parallel) {
                 results_j.clear();
-                results_j.resize(100);
+                results_j.resize(CUTOFF);
 
                 #pragma omp parallel for
-                for (int ii = 0; ii < 100; ii++) {
+                for (int ii = 0; ii < CUTOFF; ii++) {
                     int jj = sample_negative(u, urm);
                     results_j[ii] = make_pair(predict_xuij(u, i, jj, urm, S, indexes), jj);
                 }
@@ -452,19 +454,18 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
             }
             else {
                 x_pred = predict_xuij(u, i, j, urm, S, indexes);
-                //cout << "x_pred = " << x_pred << endl;
-                int cutoff = 100;
-                while (x_pred > 0.0 && cutoff--) {
+
+                int cutoff = CUTOFF;
+                while (x_pred >= 0.0 && cutoff--) {
                     j = sample_negative(u, urm);
                     x_pred = predict_xuij(u, i, j, urm, S, indexes);
-                    //cout << "Resampled. x_pred = " << x_pred << endl;
                 }
             }
 
 
 
 
-            if (x_pred <= 0.1) {
+            if (x_pred <= 0.5) {
                 float z = sigmoid(x_pred);
 
                 adagrad_weights[i] += z*z;
@@ -480,14 +481,14 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
 
                     if (psi < indexes[i].size() && idx != i && idx == indexes[i][psi]) {
                         if (adagrad)
-                            S[i][psi] += (alpha / sqrt(adagrad_weights[i] + 0.000001))*(z - reg_positive*S[i][psi]);
+                            S[i][psi] += (alpha / sqrt(adagrad_weights[i] + 1e08))*(z - reg_positive*S[i][psi]);
                         else
                             S[i][psi] += (alpha)*(z - reg_positive*S[i][psi]);
                     }
 
                     if (psj < indexes[j].size() && idx != j && idx == indexes[j][psj]){
                         if (adagrad)
-                            S[j][psj] += (alpha / sqrt(adagrad_weights[j] + 0.000001))*(-z - reg_negative*S[j][psj]);
+                            S[j][psj] += (alpha / sqrt(adagrad_weights[j] + 1e08))*(-z - reg_negative*S[j][psj]);
                         else
                             S[j][psj] += (alpha)*(-z - reg_negative*S[j][psj]);
                     }
