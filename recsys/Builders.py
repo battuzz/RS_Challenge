@@ -6,6 +6,7 @@ import scipy as sc
 import pickle
 import os
 from . import preprocess
+from . import utility as utils
 from scipy.sparse import vstack, csr_matrix, lil_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 import functools
@@ -311,3 +312,47 @@ class UAMBuilder(Builder):
         self.artist_to_val = artist_to_val
 
         return UAM, UAM_no_norm, artist_to_val
+
+class SimilarityBuilder(object):
+    def TTM_dot(self, dataset):
+        URM_pow = URMBuilder(norm="pow", pow_base=500, pow_exp=0.15).build(dataset)
+        row_group = 10000
+        def_rows_i = csr_matrix((row_group, URM_pow.shape[1]))
+        TTM_dot = utils.dot_with_top(URM_pow.transpose(), URM_pow, def_rows_i, top=50, row_group=row_group, similarity="dot-old")
+
+        return TTM_dot
+
+    def TTM_cosine(self, dataset):
+        URM_normalize = URMBuilder(norm="no").build(dataset)
+        row_group = 10000
+        def_rows_i = csr_matrix((row_group, URM_normalize.shape[1]))
+        TTM_cosine = utils.dot_with_top(URM_normalize.transpose(), URM_normalize, def_rows_i, top=50, row_group=row_group, similarity="cosine-old")
+
+        return TTM_cosine
+
+    def TTM_UUM_cosine(self, dataset):
+        URM_normalize = URMBuilder(norm="no").build(dataset)
+
+        row_group = 10000
+        def_rows_i = csr_matrix((row_group, URM_normalize.transpose().shape[1]))
+        UUM_cosine = utils.dot_with_top(URM_normalize, URM_normalize.transpose(), def_rows_i, top=500, row_group=row_group, similarity="cosine-old")
+
+        def_rows_i = csr_matrix((row_group, UUM_cosine.transpose().shape[1]))
+        URM_UUM_cosine = utils.dot_with_top(UUM_cosine, URM_normalize, def_rows_i, top=500, row_group=row_group, similarity="cosine-old")
+
+        def_rows_i = csr_matrix((row_group, URM_UUM_cosine.shape[1]))
+        TTM_UUM_cosine = utils.dot_with_top(URM_UUM_cosine.transpose(), URM_UUM_cosine, def_rows_i, top=50, row_group=row_group, similarity="cosine-old")
+
+        return TTM_UUM_cosine
+
+    def SYM_ALBUM(self, dataset):
+        IAM_album = IAMAlbumBuilder(norm="no").build(dataset)
+        SYM_ALBUM = IAM_album.dot(IAM_album.transpose())
+
+        return SYM_ALBUM
+
+    def SYM_ARTIST(self, dataset):
+        IAM = IAMArtistBuilder(norm="no").build(dataset)
+        SYM_ARTIST = IAM.dot(IAM.transpose())
+
+        return SYM_ARTIST

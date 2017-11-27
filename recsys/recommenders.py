@@ -10,6 +10,7 @@ import os
 import subprocess
 from . import preprocess
 from . import utility as utils
+from . import builders
 from scipy.sparse import vstack, csr_matrix, lil_matrix, coo_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
@@ -67,9 +68,18 @@ class Recommender(object):
         return self.name if self.name is not None else 'Recommender'
 
 class SimilarityRecommender(Recommender):
-    def fit(self, dataset, similarity=None):
-        super().fit(dataset)
+    def __init__(self, name=None, similarity=None):
+        super().__init__(name)
         self.similarity = similarity
+
+    def fit(self, dataset):
+        super().fit(dataset)
+        if isinstance(self.similarity, str):
+            simBuilder = builders.SimilarityBuilder()
+            if hasattr(simBuilder, self.similarity):
+                self.similarity = getattr(simBuilder, self.similarity)(dataset)
+            else:
+                raise Exception("Similarity Builder has no instance of {}".format(similarity))
 
     def recommend_group(self, row_start, row_end, keep_best=5, compute_MAP=False):
         pl_group = self.dataset.target_playlists[row_start:row_end]
@@ -309,9 +319,20 @@ class EnsembleRecommender(Recommender):
 
         self.predictions = self.reducer(self.predictions)
 
-        predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
-        current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
-        print("{}: {}-{} --> {}".format(self, 0, len(self.dataset.target_playlists), current_map))
+        row_group = 1000
+        row_start = 0
+        while row_start < len(self.dataset.target_playlists):
+            # We'll do dot products for all playlists in "target_playlists" from "row_start" to "row_end"
+            row_end = row_start + row_group if row_start + row_group <= len(self.dataset.target_playlists) else len(self.dataset.target_playlists)
+
+
+            predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions[:row_end], self.dataset, keep_best=5, map_tracks=True)
+            current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
+            print("{}: {}-{} --> {}".format(self, row_start, row_end, current_map))
+
+            row_start = row_end
+
+        return current_map
 
 
     def get_predictors(self):
