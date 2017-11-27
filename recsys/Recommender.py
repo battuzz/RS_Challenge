@@ -270,19 +270,14 @@ class EnsembleRecommender(Recommender):
         for predictor in self.recommenders:
             pred = predictor.recommend_group(row_start, row_end, keep_best=self.dataset.urm.shape[1], compute_MAP=compute_MAP)
 
-            # if compute_MAP:
-            #     print("{} : {}".format(predictor, predictor.evaluate()))
             predictions.append(pred)
 
-        print(len(predictions))
         predictions = self.reducer(predictions)
-        print(predictions.shape)
 
         # keep only keep_best elements
         predictions_to_save = predictions.copy()
         for i,pl_id in enumerate(pl_group.playlist_id):
             row = predictions[i].copy()
-            print(row)
             pl_tracks = list(set(self.dataset.playlist_tracks.loc[pl_id]['track_ids']))
 
             mask = np.ones(row.shape[1], dtype=bool)
@@ -295,6 +290,29 @@ class EnsembleRecommender(Recommender):
             predictions_to_save[i] = row[best_indexes[:5]]
 
         return predictions
+
+    def evaluate(self):
+        test_good = preprocess.get_playlist_track_list2(self.dataset.test)
+        test_good.index = test_good.playlist_id.apply(lambda pl_id: self.dataset.playlist_to_num[pl_id])
+
+
+        for predictor in self.recommenders:
+            if not hasattr(predictor, 'predictions'):
+                print("Computing predictions for {}".format(predictor))
+                predictor.evaluate()
+            else:
+                print("Using cached predictions for {}".format(predictor))
+
+        self.predictions = [predictor.predictions for predictor in self.recommenders]
+
+        # Apply reducer function over predictions
+
+        self.predictions = self.reducer(self.predictions)
+
+        predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
+        current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
+        print("{}: {}-{} --> {}".format(self, 0, len(self.dataset.target_playlists), current_map))
+
 
     def get_predictors(self):
         return self.recommenders
