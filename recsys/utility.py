@@ -279,3 +279,13 @@ def from_prediction_matrix_to_dataframe(pred_matrix, dataset, keep_best=5, map_t
         predictions.loc[pl_id] = predictions.loc[pl_id].set_value('track_ids', pred)
 
     return predictions
+
+def build_id_to_num_map(df, column):
+    a = pd.Series(np.arange(len(df)))
+    a.index = df[column]
+    return a
+
+def build_num_to_id_map(df, column):
+    a = pd.Series(df[column])
+    a.index = np.arange(len(df))
+    return a

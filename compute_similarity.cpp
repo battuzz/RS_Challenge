@@ -487,15 +487,6 @@ int main(int argc, char *argv[]) {
     read_tracks_in_playlist(tracks_in_playlist);
     cout << "Reading tracks..." << endl;
     read_tracks(tracks, target_tracks, mapping);
-    cout << "Reading popular tracks..." << endl;
-    read_popular_tracks(popular_tracks);
-    cout << "Reading popular tags..." << endl;
-    read_popular_tags(popular_tags);
-
-    cout << tracks.size() << endl;
-    cout << target_tracks.size() << endl;
-    cout << popular_tracks.size() << endl;
-    cout << popular_tags.size() << endl;
 
     cout << "Creating similarity matrix..." << endl;
     compute_similarity(metric, tracks, target_tracks, mapping, similarity, indexes, K);
