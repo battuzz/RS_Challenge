@@ -253,10 +253,14 @@ class BPRRecommender(SimilarityRecommender):
         self.output_tracks_in_playlist(os.path.join(base_name, "tracks_in_playlist.txt"))
 
         print("Calling compute_similarity")
-        subprocess.call(["./compute_similarity", *self.similarity_params, base_name], stdout=open(os.devnull, 'w'))
+        subprocess.run(["./compute_similarity", *self.similarity_params, base_name], stdout=open(os.devnull, 'w'))
 
         print("Calling BPRSLIM")
-        subprocess.call(["./BPRSLIM",base_name, *self.bpr_params])
+        popen = subprocess.Popen(["./BPRSLIM",base_name, *self.bpr_params], stdout=subprocess.PIPE)
+        for stdout_line in iter(popen.stdout.readline, ""):
+            print(str(stdout_line, 'utf-8'), end="")
+
+        popen.wait()
 
         print("Loading similarity")
         self.similarity = self.load_similarity(base_name)
