@@ -9,7 +9,7 @@ from . import preprocess
 from scipy.sparse import vstack, csr_matrix, csc_matrix, lil_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
-from . import Builders as builders
+from . import builders
 
 class Dataset(object):
     @staticmethod
@@ -102,6 +102,12 @@ class Dataset(object):
         self.track_playlists['playlist_ids'] = self.train.groupby('track_id').apply(lambda x : x['playlist_id'].values)
         self.track_playlists = self.track_playlists.sort_values('track_id')
 
+    def _add_owners(self):
+        self.tracks['owners'] = self.track_playlists['playlist_ids'].apply(lambda x : self.playlists.loc[x]['owner'].values)
+        null_owners = self.tracks[~self.tracks.owners.notnull()]
+        for i in range(len(null_owners)):
+            self.tracks.set_value(null_owners.track_id.iloc[i], 'owners', np.array([]))
+
 
     def split_holdout(self, test_size=1, min_playlist_tracks=13):
         self.train_orig = self.train.copy()
@@ -121,6 +127,7 @@ class Dataset(object):
         self._normalize_target_tracks()
         self._normalize_target_playlists()
         self._compute_mappings()
+        self._add_owners()
 
 
     def build_urm(self, urm_builder=builders.URMBuilder(norm="no")):

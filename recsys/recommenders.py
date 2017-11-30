@@ -39,10 +39,13 @@ class Recommender(object):
         return [self]
 
     def evaluate(self):
-        test_good = preprocess.get_playlist_track_list2(self.dataset.test)
-        test_good.index = test_good.playlist_id.apply(lambda pl_id: self.dataset.playlist_to_num[pl_id])
+        if hasattr(self.dataset, 'test'):
+            test_good = preprocess.get_playlist_track_list2(self.dataset.test)
+            test_good.index = test_good.playlist_id.apply(lambda pl_id: self.dataset.playlist_to_num[pl_id])
 
         self.predictions = csr_matrix((0, self.dataset.urm.shape[1]))
+
+        current_map = 0
 
         row_group = 1000
         row_start = 0
@@ -54,9 +57,10 @@ class Recommender(object):
 
             self.predictions = vstack([self.predictions, simil_urm], 'csr')
 
-            predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
-            current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
-            print("{}: {}-{} --> {}".format(self, row_start, row_end, current_map))
+            if hasattr(self.dataset, 'test'):
+                predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions, self.dataset, keep_best=5, map_tracks=True)
+                current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
+                print("{}: {}-{} --> {}".format(self, row_start, row_end, current_map))
 
             row_start = row_end
 
@@ -68,9 +72,10 @@ class Recommender(object):
         return self.name if self.name is not None else 'Recommender'
 
 class SimilarityRecommender(Recommender):
-    def __init__(self, name=None, similarity=None):
+    def __init__(self, name=None, similarity=None, urm_builder=None):
         super().__init__(name)
         self.similarity = similarity
+        self.urm_builder = urm_builder
 
     def fit(self, dataset):
         super().fit(dataset)
@@ -81,12 +86,18 @@ class SimilarityRecommender(Recommender):
             else:
                 raise Exception("Similarity Builder has no instance of {}".format(similarity))
 
+        if self.urm_builder is not None:
+            self.urm = self.urm_builder.build(dataset)
+
     def recommend_group(self, row_start, row_end, keep_best=5, compute_MAP=False):
         pl_group = self.dataset.target_playlists[row_start:row_end]
 
-        composed_URM = csr_matrix(self.dataset.urm[pl_group.playlist_id, :])
+        if hasattr(self, 'urm'):
+            composed_URM = csr_matrix(self.urm[pl_group.playlist_id, :])
+        else:
+            composed_URM = csr_matrix(self.dataset.urm[pl_group.playlist_id, :])
 
-        predictions = np.array(np.divide(self.similarity.dot(composed_URM.transpose()).transpose().todense(), self.similarity.sum(axis=1).transpose() + 1))
+        predictions = np.array(np.divide(self.similarity.dot(composed_URM.transpose()).transpose().todense(), np.abs(self.similarity.sum(axis=1).transpose()) + 1))
         predictions_to_save = predictions.copy()
 
         for i,pl_id in enumerate(pl_group.playlist_id):
@@ -112,8 +123,8 @@ class SimilarityRecommender(Recommender):
         return csr_matrix(predictions)
 
 class BPRRecommender(SimilarityRecommender):
-    def __init__(self, name=None, similarity_params = ['1.5', '0.7', '0.001', '0.001', '0.001', '3', '0'], bpr_params=['2', '0.1', '0.001', '0.001']):
-        super().__init__(name)
+    def __init__(self, name=None, similarity_params = ['1.5', '0.7', '0.001', '0.001', '0.001', '3', '0'], bpr_params=['4', '0.3', '0.00001', '0.00001'], urm_builder=None):
+        super().__init__(name, urm_builder=urm_builder)
         self.similarity_params = similarity_params
         self.bpr_params = bpr_params
 
@@ -256,11 +267,7 @@ class BPRRecommender(SimilarityRecommender):
         subprocess.run(["./compute_similarity", *self.similarity_params, base_name], stdout=open(os.devnull, 'w'))
 
         print("Calling BPRSLIM")
-        popen = subprocess.Popen(["./BPRSLIM",base_name, *self.bpr_params], stdout=subprocess.PIPE)
-        for stdout_line in iter(popen.stdout.readline, ""):
-            print(str(stdout_line, 'utf-8'), end="")
-
-        popen.wait()
+        subprocess.run(["./BPRSLIM",base_name, *self.bpr_params, '0'], stdout=open(os.devnull, 'w'))
 
         print("Loading similarity")
         self.similarity = self.load_similarity(base_name)
@@ -306,10 +313,11 @@ class EnsembleRecommender(Recommender):
         return predictions
 
     def evaluate(self):
-        test_good = preprocess.get_playlist_track_list2(self.dataset.test)
-        test_good.index = test_good.playlist_id.apply(lambda pl_id: self.dataset.playlist_to_num[pl_id])
+        if hasattr(self.dataset, 'test'):
+            test_good = preprocess.get_playlist_track_list2(self.dataset.test)
+            test_good.index = test_good.playlist_id.apply(lambda pl_id: self.dataset.playlist_to_num[pl_id])
 
-
+        current_map = 0
         for predictor in self.recommenders:
             if not hasattr(predictor, 'predictions'):
                 print("Computing predictions for {}".format(predictor))
@@ -329,10 +337,10 @@ class EnsembleRecommender(Recommender):
             # We'll do dot products for all playlists in "target_playlists" from "row_start" to "row_end"
             row_end = row_start + row_group if row_start + row_group <= len(self.dataset.target_playlists) else len(self.dataset.target_playlists)
 
-
-            predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions[:row_end], self.dataset, keep_best=5, map_tracks=True)
-            current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
-            print("{}: {}-{} --> {}".format(self, row_start, row_end, current_map))
+            if hasattr(self.dataset, 'test'):
+                predictions_df = utils.from_prediction_matrix_to_dataframe(self.predictions[:row_end], self.dataset, keep_best=5, map_tracks=True)
+                current_map = utils.evaluate(test_good, predictions_df, should_transform_test=False)
+                print("{}: {}-{} --> {}".format(self, row_start, row_end, current_map))
 
             row_start = row_end
 

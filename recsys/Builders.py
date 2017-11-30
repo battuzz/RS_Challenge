@@ -83,6 +83,7 @@ class URMBuilder(Builder):
         self.pow_base = pow_base
         self.pow_exp = pow_exp
 
+    @functools.lru_cache(maxsize=2)
     def build(self, dataset):
         """
             possible normalizations: "no", "idf", "sqrt", "pow", "atan".
@@ -313,6 +314,37 @@ class UAMBuilder(Builder):
 
         return UAM, UAM_no_norm, artist_to_val
 
+class OTMBuilder(Builder):
+    def __init__(self, norm="no"):
+        self.norm = norm
+
+
+    def build(self, dataset):
+        owner_tracks = {}
+        for row in dataset.tracks.itertuples():
+            for owner in row.owners:
+                if owner in owner_tracks:
+                    owner_tracks[owner].append(row.track_id)
+                else:
+                    owner_tracks[owner] = [row.track_id]
+
+        unique_owners = list(owner_tracks.keys())
+        OTM = lil_matrix((len(dataset.tracks), max(unique_owners)+1))
+
+
+        owner_dict = owner_tracks
+
+        for owner,track_ids in owner_dict.items():
+            nq = len(track_ids)
+            for track_id in track_ids:
+                if self.norm == "idf":
+                    OTM[track_id,owner] += math.log(500/(nq + 1))
+                elif self.norm == "sqrt":
+                    OTM[track_id,owner] += math.sqrt(500/(nq + 1))
+                else:
+                    OTM[track_id,owner] += 1
+        return OTM
+
 class SimilarityBuilder(object):
     def TTM_dot(self, dataset):
         URM_pow = URMBuilder(norm="pow", pow_base=500, pow_exp=0.15).build(dataset)
@@ -320,6 +352,7 @@ class SimilarityBuilder(object):
         def_rows_i = csr_matrix((row_group, URM_pow.shape[1]))
         TTM_dot = utils.dot_with_top(URM_pow.transpose(), URM_pow, def_rows_i, top=50, row_group=row_group, similarity="dot-old")
 
+        TTM_dot = normalize(TTM_dot, norm='l2', axis=0)
         return TTM_dot
 
     def TTM_cosine(self, dataset):
@@ -328,6 +361,7 @@ class SimilarityBuilder(object):
         def_rows_i = csr_matrix((row_group, URM_normalize.shape[1]))
         TTM_cosine = utils.dot_with_top(URM_normalize.transpose(), URM_normalize, def_rows_i, top=50, row_group=row_group, similarity="cosine-old")
 
+        TTM_cosine = normalize(TTM_cosine, norm='l2', axis=0)
         return TTM_cosine
 
     def TTM_UUM_cosine(self, dataset):
@@ -343,16 +377,31 @@ class SimilarityBuilder(object):
         def_rows_i = csr_matrix((row_group, URM_UUM_cosine.shape[1]))
         TTM_UUM_cosine = utils.dot_with_top(URM_UUM_cosine.transpose(), URM_UUM_cosine, def_rows_i, top=50, row_group=row_group, similarity="cosine-old")
 
+        TTM_UUM_cosine = normalize(TTM_UUM_cosine, norm='l2', axis=0)
+
         return TTM_UUM_cosine
 
     def SYM_ALBUM(self, dataset):
         IAM_album = IAMAlbumBuilder(norm="no").build(dataset)
         SYM_ALBUM = IAM_album.dot(IAM_album.transpose())
 
+        SYM_ALBUM = normalize(SYM_ALBUM, norm='l1', axis=0)
         return SYM_ALBUM
 
     def SYM_ARTIST(self, dataset):
         IAM = IAMArtistBuilder(norm="no").build(dataset)
         SYM_ARTIST = IAM.dot(IAM.transpose())
 
+        SYM_ARTIST = normalize(SYM_ARTIST, norm='l2', axis=0)
+
         return SYM_ARTIST
+
+    def SYM_OWNER(self, dataset):
+        OTM = OTMBuilder(norm="no").build(dataset)
+
+        row_group = 10000
+        def_rows_i = csr_matrix((row_group, OTM.shape[0])) # this is needed to fill some rows that would be all zeros otherwise...
+        SYM_OWNERS = utils.dot_with_top(OTM, OTM.transpose(), def_rows_i, top=50, row_group=row_group, similarity="cosine-old")
+
+        SYM_OWNERS =  normalize(SYM_OWNERS, norm='l2', axis=0)
+        return SYM_OWNERS

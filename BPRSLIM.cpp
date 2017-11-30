@@ -18,9 +18,11 @@ using namespace std;
 
 const int SAMPLES_PER_EPOCH = 10000;
 
-bool adagrad = true;
-bool top100parallel = true;
+bool adagrad = false;
+bool top100parallel = false;
 bool DEBUG = false;
+int CUTOFF = 1;
+int do_test = 1;
 
 typedef vector<vector<float>> FloatMatrix;
 typedef vector<vector<int>> IntMatrix;
@@ -276,7 +278,7 @@ float computeMAP(IntMatrix& urm, IntMatrix& test, FloatMatrix& S, IntMatrix& ind
     return cumsum / tplaylists.size();
 }
 
-void read_similarity_matrix(vector<vector<float>> &similarity, vector<vector<int>> &indexes, int read_values) {
+void read_similarity_matrix(vector<vector<float>> &similarity, vector<vector<int>> &indexes, int read_values=0) {
     string weights, rows, cols, data, sizes;
     ifstream input (base_name + "/similarity.txt");
 
@@ -417,8 +419,6 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
     vector<float> adagrad_weights;
     adagrad_weights.assign(NITEMS, 0.0);
 
-    int CUTOFF = 100;
-
     for (int it = 0; it < iterations; it++) {
         cout << "Iteration: " << it << endl;
         vector<Sample> samples;
@@ -465,7 +465,7 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
 
 
 
-            if (x_pred <= 0.5) {
+            if (true) {
                 float z = sigmoid(x_pred);
 
                 adagrad_weights[i] += z*z;
@@ -499,7 +499,8 @@ void BPRSLIM(vector<vector<int>>& urm, vector<vector<float>> &S, vector<vector<i
             }
 
         }
-        cout << "MAP: " << fixed << setprecision(5) << computeMAP(urm, test, S, indexes, ttracks, tplaylists) << endl;
+        if (do_test)
+            cout << "MAP: " << fixed << setprecision(5) << computeMAP(urm, test, S, indexes, ttracks, tplaylists) << endl;
 
     }
 }
@@ -511,7 +512,7 @@ int main(int argc, char *argv[]) {
     vector<vector<float>> similarity;
     vector<vector<int>> indexes;
 
-    int read_values = 0;
+    do_test = 0;
 
     int numiterations = 70;
     float reg_positive = 0.1, reg_negative = 0.01, alpha = 0.01;
@@ -519,7 +520,7 @@ int main(int argc, char *argv[]) {
     if (argc >= 2)
         base_name = string(argv[1]);
     else {
-        cout << "Usage: " << argv[0] << " <folder> [<numiterations> <alpha> <reg_positive> <reg_negative>] [<read_values>=0/1]" << endl;
+        cout << "Usage: " << argv[0] << " <folder> [<numiterations> <alpha> <reg_positive> <reg_negative>] [<test>=0/1]" << endl;
         exit(0);
     }
     if (argc >= 6) {
@@ -530,14 +531,14 @@ int main(int argc, char *argv[]) {
     }
 
     if (argc >= 7) {
-        read_values = atoi(argv[6]);
+        do_test = atoi(argv[6]);
     }
 
     cout << "Reading tracks in playlist..." << endl;
     read_tracks_in_playlist(tracks_in_playlist);
 
     cout << "Reading similarity matrix" << endl;
-    read_similarity_matrix(similarity, indexes, read_values);
+    read_similarity_matrix(similarity, indexes, 0);
 
     cout << "Reading target tracks" << endl;
     get_target_tracks(ttracks);
@@ -546,7 +547,8 @@ int main(int argc, char *argv[]) {
     get_target_playlists(tplaylists);
 
     cout << "Reading test" << endl;
-    read_test(test);
+    if (do_test)
+        read_test(test);
 
     //cout << "Building similarity.." << endl;
     //build_similarity(samples, tracks_in_playlist, indexes, similarity);
