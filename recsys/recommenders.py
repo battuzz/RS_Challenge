@@ -89,7 +89,7 @@ class SimilarityRecommender(Recommender):
         if self.urm_builder is not None:
             self.urm = self.urm_builder.build(dataset)
 
-    def recommend_group(self, row_start, row_end, keep_best=5, compute_MAP=False):
+    def recommend_group(self, row_start, row_end, keep_best=10, compute_MAP=False):
         pl_group = self.dataset.target_playlists[row_start:row_end]
 
         if hasattr(self, 'urm'):
@@ -116,6 +116,10 @@ class SimilarityRecommender(Recommender):
 
             new_row[best_indexes] = row[best_indexes]
             new_row_to_save[best_indexes[:5]] = row[best_indexes[:5]]
+
+            # # z-scoring
+            # if len(new_row.nonzero()[0]) > 0:
+            #     new_row = (new_row - new_row.mean()) / new_row.std()
 
             predictions[i] = new_row
             predictions_to_save[i] = new_row_to_save
